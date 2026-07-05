@@ -1,2 +1,2 @@
 # vepyr-plugins
-vepyr plugin manifets for cache builder
+vepyr plugin manifests for cache builder
