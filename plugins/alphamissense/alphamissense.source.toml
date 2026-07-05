@@ -1,0 +1,71 @@
+# AlphaMissense source manifest (first vepyr plugin).
+#
+# Source: https://storage.googleapis.com/dm_alphamissense/AlphaMissense_hg38.tsv.gz
+# VEP plugin: https://github.com/Ensembl/VEP_plugins/blob/release/116/AlphaMissense.pm
+#
+# hg38, 1-based, `chr`-prefixed contigs. Tab-separated, `#`-comment header lines
+# (license banner + column header). Default VEP output fields: am_pathogenicity,
+# am_class. Matched per-variant on (chrom, pos, ref, alt) with transcript_match=0
+# (no transcript filtering), which maps cleanly onto our (chrom, start,
+# allele_string) key.
+#
+# NOTE: top-level scalar keys (plugin_name, coordinate_system, ingest_sql) MUST
+# precede any [[table]] header, or TOML absorbs them into the preceding table.
+
+plugin_name       = "alphamissense"
+coordinate_system = "1-based"
+ingest_sql = """
+SELECT chrom,
+       CAST(pos AS INT) AS start,
+       CAST(pos AS INT) AS end,
+       concat(ref, '/', alt) AS allele_string,
+       protein_variant AS protein_variant,
+       CAST(am_pathogenicity AS FLOAT) AS am_pathogenicity,
+       am_class AS am_class
+FROM plugin_alphamissense_src
+"""
+
+[[source]]
+provider = "tsv"
+# The build driver overrides this with --source-path (a chr-scoped slice for the
+# prototype, or the full AlphaMissense_hg38.tsv.gz for a production build).
+path = "AlphaMissense_hg38.tsv.gz"
+  [source.csv]
+  delimiter   = "\t"
+  has_header  = false
+  comment     = "#"
+  compression = "gzip"
+  schema = [
+    { name = "chrom",            type = "Utf8" },
+    { name = "pos",              type = "Utf8" },
+    { name = "ref",              type = "Utf8" },
+    { name = "alt",              type = "Utf8" },
+    { name = "genome",           type = "Utf8" },
+    { name = "uniprot_id",       type = "Utf8" },
+    { name = "transcript_id",    type = "Utf8" },
+    { name = "protein_variant",  type = "Utf8" },
+    { name = "am_pathogenicity", type = "Utf8" },
+    { name = "am_class",         type = "Utf8" },
+  ]
+
+# Per-transcript match discriminator: VEP AlphaMissense matches each transcript
+# consequence's amino-acid change against the row's protein_variant
+# (transcript_match=0 default). The engine forms `{refAA}{Protein_position}{altAA}`.
+[[match_column]]
+column = "protein_variant"
+engine_attr = "amino_acid_change"
+
+# Field order matches Ensembl VEP AlphaMissense output: am_class, am_pathogenicity.
+[[value_columns]]
+column = "am_class"
+csq_field = "am_class"
+type = "Utf8"
+
+[[value_columns]]
+column = "am_pathogenicity"
+csq_field = "am_pathogenicity"
+type = "Float32"
+
+[tier]
+threshold = 0.01
+unmatched = "cold"
