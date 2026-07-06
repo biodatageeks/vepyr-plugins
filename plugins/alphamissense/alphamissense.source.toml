@@ -5,9 +5,9 @@
 #
 # hg38, 1-based, `chr`-prefixed contigs. Tab-separated, `#`-comment header lines
 # (license banner + column header). Default VEP output fields: am_pathogenicity,
-# am_class. Matched per-variant on (chrom, pos, ref, alt) with transcript_match=0
-# (no transcript filtering), which maps cleanly onto our (chrom, start,
-# allele_string) key.
+# am_class. Matched per-(variant x transcript): the (chrom, start, allele_string)
+# key plus a `protein_variant` discriminator built at runtime from a template.
+# Tiering is inherited from the variation cache (no [tier] block needed).
 #
 # NOTE: top-level scalar keys (plugin_name, coordinate_system, ingest_sql) MUST
 # precede any [[table]] header, or TOML absorbs them into the preceding table.
@@ -49,11 +49,12 @@ path = "AlphaMissense_hg38.tsv.gz"
   ]
 
 # Per-transcript match discriminator: VEP AlphaMissense matches each transcript
-# consequence's amino-acid change against the row's protein_variant
-# (transcript_match=0 default). The engine forms `{refAA}{Protein_position}{altAA}`.
+# consequence's amino-acid change against the row's protein_variant. The template
+# builds the discriminator from the engine-attribute namespace (ref_aa / alt_aa
+# are the split of Amino_acids; Protein_position is the 1-based aa position).
 [[match_column]]
 column = "protein_variant"
-engine_attr = "amino_acid_change"
+template = "{ref_aa}{Protein_position}{alt_aa}"
 
 # Field order matches Ensembl VEP AlphaMissense output: am_class, am_pathogenicity.
 [[value_columns]]
@@ -65,7 +66,3 @@ type = "Utf8"
 column = "am_pathogenicity"
 csq_field = "am_pathogenicity"
 type = "Float32"
-
-[tier]
-threshold = 0.01
-unmatched = "cold"
