@@ -25,9 +25,10 @@
 # SYMBOL against the row's own SYMBOL (`_join_transcript` in SpliceAI.pm) —
 # modeled here as a per-transcript match_column, same mechanism as
 # AlphaMissense's protein_variant discriminator but keyed on gene symbol
-# instead of amino-acid change. `symbol` doubles as both the match-key column
-# and a plain value column (VEP's own SpliceAI plugin emits SYMBOL alongside
-# the 8 scores).
+# instead of amino-acid change. VEP's own SpliceAI plugin also emits SYMBOL
+# alongside the 8 scores, so the ingest view carries it twice under distinct
+# names (`symbol` for the match key, `symbol_out` for the value column) — the
+# builder's projection rejects two output columns sharing one source name.
 
 plugin_name       = "spliceai"
 coordinate_system = "1-based"
@@ -37,6 +38,7 @@ SELECT chrom,
        CAST(pos AS INT) AS end,
        concat(ref, '/', alt) AS allele_string,
        symbol,
+       symbol AS symbol_out,
        CAST(ds_ag AS FLOAT) AS ds_ag,
        CAST(ds_al AS FLOAT) AS ds_al,
        CAST(ds_dg AS FLOAT) AS ds_dg,
@@ -80,7 +82,7 @@ template = "{SYMBOL}"
 
 # Field order matches Ensembl VEP SpliceAI plugin default output.
 [[value_columns]]
-column = "symbol"
+column = "symbol_out"
 csq_field = "SpliceAI_pred_SYMBOL"
 type = "Utf8"
 
