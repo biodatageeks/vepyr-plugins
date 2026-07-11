@@ -1,0 +1,125 @@
+# SpliceAI source manifest.
+#
+# Source: https://ftp.ensembl.org/pub/data_files/homo_sapiens/GRCh38/variation_plugins/spliceai_scores.masked.snv.ensembl_mane.grch38.110.vcf.gz
+# VEP plugin: https://github.com/Ensembl/VEP_plugins/blob/release/116/SpliceAI.pm
+#
+# hg38, 1-based, bare (non-`chr`-prefixed) contigs. Single INFO tag `SpliceAI`
+# packs one pipe-delimited prediction per variant:
+#   ALLELE|SYMBOL|DS_AG|DS_AL|DS_DG|DS_DL|DP_AG|DP_AL|DP_DG|DP_DL
+# (ALLELE duplicates VCF ALT and is dropped during flattening.) The masked
+# release checked (100k-record sample) never carries more than one prediction
+# per variant, unlike the "raw" SpliceAI release which can list multiple
+# overlapping-gene predictions comma-joined.
+#
+# The plugin_cache provider factory does not wire a native VCF reader yet
+# (`ProviderKind::Vcf` returns "not wired in prototype"), so the raw
+# spliceai_scores...vcf.gz is pre-flattened into a headerless TSV, splitting
+# the packed SpliceAI INFO tag into its 9 components, before being fed to this
+# manifest as `source_path`:
+#
+#   bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/SpliceAI\n' spliceai_scores....vcf.gz \
+#     | awk -F'\t' 'BEGIN{OFS="\t"} { n=split($5,a,"|"); print $1,$2,$3,$4,a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9],a[10] }' \
+#     | gzip > spliceai_flat.tsv.gz
+#
+# VEP gates SpliceAI by matching the current transcript consequence's gene
+# SYMBOL against the row's own SYMBOL (`_join_transcript` in SpliceAI.pm) —
+# modeled here as a per-transcript match_column, same mechanism as
+# AlphaMissense's protein_variant discriminator but keyed on gene symbol
+# instead of amino-acid change. `symbol` doubles as both the match-key column
+# and a plain value column (VEP's own SpliceAI plugin emits SYMBOL alongside
+# the 8 scores).
+
+plugin_name       = "spliceai"
+coordinate_system = "1-based"
+ingest_sql = """
+SELECT chrom,
+       CAST(pos AS INT) AS start,
+       CAST(pos AS INT) AS end,
+       concat(ref, '/', alt) AS allele_string,
+       symbol,
+       CAST(ds_ag AS FLOAT) AS ds_ag,
+       CAST(ds_al AS FLOAT) AS ds_al,
+       CAST(ds_dg AS FLOAT) AS ds_dg,
+       CAST(ds_dl AS FLOAT) AS ds_dl,
+       CAST(dp_ag AS INT) AS dp_ag,
+       CAST(dp_al AS INT) AS dp_al,
+       CAST(dp_dg AS INT) AS dp_dg,
+       CAST(dp_dl AS INT) AS dp_dl
+FROM plugin_spliceai_src
+"""
+
+[[source]]
+provider = "tsv"
+# Overridden at build time with --source-path (the flattened TSV above).
+path = "spliceai_flat.tsv.gz"
+  [source.csv]
+  delimiter   = "\t"
+  has_header  = false
+  compression = "gzip"
+  schema = [
+    { name = "chrom",  type = "Utf8" },
+    { name = "pos",    type = "Utf8" },
+    { name = "ref",    type = "Utf8" },
+    { name = "alt",    type = "Utf8" },
+    { name = "symbol", type = "Utf8" },
+    { name = "ds_ag",  type = "Utf8" },
+    { name = "ds_al",  type = "Utf8" },
+    { name = "ds_dg",  type = "Utf8" },
+    { name = "ds_dl",  type = "Utf8" },
+    { name = "dp_ag",  type = "Utf8" },
+    { name = "dp_al",  type = "Utf8" },
+    { name = "dp_dg",  type = "Utf8" },
+    { name = "dp_dl",  type = "Utf8" },
+  ]
+
+# Per-transcript match discriminator: gene SYMBOL (requires the framework's
+# SYMBOL engine attribute, added on this branch).
+[[match_column]]
+column   = "symbol"
+template = "{SYMBOL}"
+
+# Field order matches Ensembl VEP SpliceAI plugin default output.
+[[value_columns]]
+column = "symbol"
+csq_field = "SpliceAI_pred_SYMBOL"
+type = "Utf8"
+
+[[value_columns]]
+column = "ds_ag"
+csq_field = "SpliceAI_pred_DS_AG"
+type = "Float32"
+
+[[value_columns]]
+column = "ds_al"
+csq_field = "SpliceAI_pred_DS_AL"
+type = "Float32"
+
+[[value_columns]]
+column = "ds_dg"
+csq_field = "SpliceAI_pred_DS_DG"
+type = "Float32"
+
+[[value_columns]]
+column = "ds_dl"
+csq_field = "SpliceAI_pred_DS_DL"
+type = "Float32"
+
+[[value_columns]]
+column = "dp_ag"
+csq_field = "SpliceAI_pred_DP_AG"
+type = "Int32"
+
+[[value_columns]]
+column = "dp_al"
+csq_field = "SpliceAI_pred_DP_AL"
+type = "Int32"
+
+[[value_columns]]
+column = "dp_dg"
+csq_field = "SpliceAI_pred_DP_DG"
+type = "Int32"
+
+[[value_columns]]
+column = "dp_dl"
+csq_field = "SpliceAI_pred_DP_DL"
+type = "Int32"
