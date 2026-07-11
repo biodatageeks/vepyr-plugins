@@ -21,17 +21,44 @@
 
 plugin_name       = "clinvar"
 coordinate_system = "1-based"
+# Runtime probes with the engine's `vcf_to_vep_input_allele()` form, not raw
+# VCF ref/alt (see annotate_provider.rs:5599-5602, allele.rs:340-369): for an
+# indel whose REF/ALT share a leading anchor base, it strips that one base
+# from both and shifts `start` by +1 (no suffix trimming, unlike the full VEP
+# allele-minimization used elsewhere). SNVs and MNVs are untouched. Without
+# this, every indel's stored (start, allele_string) misses the runtime probe
+# even though the underlying data is correct — confirmed empirically: 502
+# ClinVar hits on chr21, 448/448 SNVs matched, 0/54 indels matched, before this
+# fix.
 ingest_sql = """
+WITH trimmed AS (
+    SELECT chrom,
+           CAST(pos AS INT) AS pos,
+           ref,
+           alt,
+           (length(ref) <> 1 OR length(alt) <> 1)
+               AND substr(ref, 1, 1) = substr(alt, 1, 1) AS is_shifted,
+           clnsig, clnrevstat, clndn, clnvc, clnvi
+    FROM plugin_clinvar_src
+)
 SELECT chrom,
-       CAST(pos AS INT) AS start,
-       CAST(pos AS INT) AS end,
-       concat(ref, '/', alt) AS allele_string,
+       CASE WHEN is_shifted THEN pos + 1 ELSE pos END AS start,
+       CASE WHEN is_shifted THEN pos + 1 ELSE pos END AS end,
+       concat(
+           CASE WHEN is_shifted
+                THEN CASE WHEN length(substr(ref, 2)) = 0 THEN '-' ELSE substr(ref, 2) END
+                ELSE ref END,
+           '/',
+           CASE WHEN is_shifted
+                THEN CASE WHEN length(substr(alt, 2)) = 0 THEN '-' ELSE substr(alt, 2) END
+                ELSE alt END
+       ) AS allele_string,
        clnsig,
        clnrevstat,
        clndn,
        clnvc,
        clnvi
-FROM plugin_clinvar_src
+FROM trimmed
 """
 
 [[source]]
