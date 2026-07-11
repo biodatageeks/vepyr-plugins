@@ -1,0 +1,82 @@
+# ClinVar source manifest.
+#
+# Source: https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz
+# VEP usage: not a --plugin, a --custom annotation, e.g.
+#   --custom clinvar.vcf.gz,ClinVar,vcf,exact,0,CLNSIG,CLNREVSTAT,CLNDN,CLNVC,CLNVI
+#
+# The plugin_cache provider factory does not wire a native VCF reader yet
+# (`ProviderKind::Vcf` returns "not wired in prototype"), so the raw
+# clinvar.vcf.gz is pre-flattened into a headerless TSV with `bcftools query`
+# before being fed to this manifest as `source_path`:
+#
+#   bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/CLNSIG\t%INFO/CLNREVSTAT\t%INFO/CLNDN\t%INFO/CLNVC\t%INFO/CLNVI\n' clinvar.vcf.gz \
+#     | awk -F'\t' 'BEGIN{OFS="\t"} { for(i=5;i<=9;i++) if($i==".") $i=""; print }' \
+#     | gzip > clinvar_flat.tsv.gz
+#
+# hg38, 1-based, bare (non-`chr`-prefixed) contigs — matches the variation
+# cache's contig convention natively. Per-variant (no [[match_column]]):
+# ClinVar annotates the variant itself, not a per-transcript amino-acid
+# change, so the same value applies to every transcript line (VEP's --custom
+# behavior).
+
+plugin_name       = "clinvar"
+coordinate_system = "1-based"
+ingest_sql = """
+SELECT chrom,
+       CAST(pos AS INT) AS start,
+       CAST(pos AS INT) AS end,
+       concat(ref, '/', alt) AS allele_string,
+       clnsig,
+       clnrevstat,
+       clndn,
+       clnvc,
+       clnvi
+FROM plugin_clinvar_src
+"""
+
+[[source]]
+provider = "tsv"
+# Overridden at build time with --source-path (the flattened TSV above).
+path = "clinvar_flat.tsv.gz"
+  [source.csv]
+  delimiter   = "\t"
+  has_header  = false
+  compression = "gzip"
+  schema = [
+    { name = "chrom",      type = "Utf8" },
+    { name = "pos",        type = "Utf8" },
+    { name = "ref",        type = "Utf8" },
+    { name = "alt",        type = "Utf8" },
+    { name = "clnsig",     type = "Utf8" },
+    { name = "clnrevstat", type = "Utf8" },
+    { name = "clndn",      type = "Utf8" },
+    { name = "clnvc",      type = "Utf8" },
+    { name = "clnvi",      type = "Utf8" },
+  ]
+
+# Field order/names match the VEP --custom short_name_field convention
+# (ClinVar_CLNSIG, ...) used in vepyr_diffly's plugins.py for the golden run.
+[[value_columns]]
+column = "clnsig"
+csq_field = "ClinVar_CLNSIG"
+type = "Utf8"
+
+[[value_columns]]
+column = "clnrevstat"
+csq_field = "ClinVar_CLNREVSTAT"
+type = "Utf8"
+
+[[value_columns]]
+column = "clndn"
+csq_field = "ClinVar_CLNDN"
+type = "Utf8"
+
+[[value_columns]]
+column = "clnvc"
+csq_field = "ClinVar_CLNVC"
+type = "Utf8"
+
+[[value_columns]]
+column = "clnvi"
+csq_field = "ClinVar_CLNVI"
+type = "Utf8"
