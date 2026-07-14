@@ -563,8 +563,10 @@ def run_check(
         cache_dir=str(mini_cache),
         plugin_cache_root=str(plugin_cache),
         chroms=[cfg.chrom],
-        # The manifest under test is the one in THIS working tree — never one
-        # fetched from a tag, or the PR would gate a different file than it ships.
+        # Resolve the manifest from THIS checkout rather than the public repo, so
+        # a PR gates the manifest it actually ships. Note vepyr materializes it at
+        # git revision `version` (default HEAD), so an uncommitted manifest edit is
+        # NOT what gets gated — commit it, then gate it.
         plugins_repo=str(REPO_ROOT),
         overwrite=True,
     )
@@ -660,6 +662,14 @@ def run_refresh_golden(
         "--fasta", str(fasta),
         "--no_stats",
         "--force_overwrite",
+        # vepyr's engine auto-discovers the cache's `regulatory/` and `motif/`
+        # tables and always annotates them; there is no off switch in
+        # vepyr.annotate(). VEP only emits regulatory features when asked. Without
+        # this flag the golden lacks every ENSR*/motif entry vepyr emits, which
+        # shifts CSQ entry alignment on ~10% of variants and dumps them into the
+        # core-drift exclusion set — where a genuine plugin bug could then hide.
+        # Compare like with like.
+        "--regulatory",
         "--dir_plugins", str(dir_plugins),
         "--plugin", plugin_args,
     ]
