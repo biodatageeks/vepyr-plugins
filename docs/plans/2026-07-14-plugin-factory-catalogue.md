@@ -42,8 +42,11 @@ loosening it.
 
 From the same pair of files, with no extra runs, compute **two verdicts**:
 
-1. **Core agreement** — compare the CSQ fields the discriminator depends on (`Feature`,
-   `Consequence`, `Amino_acids`, `Protein_position`, `ref`/`alt`). This is **not** the gate. It only
+1. **Core agreement** — compare the CSQ fields the discriminator depends on: **`Feature`,
+   `Consequence`, `Amino_acids`, `Protein_position`** — and NOT `ref`/`alt`, which are not CSQ
+   fields at all in this comparator but part of the variant key, so a disagreement there cannot
+   pair and surfaces as `keys_only_in_*`. Passing them as `fields=` would fail unclean with a
+   spurious `fields_missing_from_*`. This is **not** the gate. It only
    determines the set of variant keys where vepyr and VEP already agree.
 2. **The port gate** — compare the plugin's CSQ fields, **restricted to that agreed subset**. A
    mismatch there is unambiguously the manifest's or `plugin_cache`'s fault.
