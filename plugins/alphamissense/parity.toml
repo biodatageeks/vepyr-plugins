@@ -1,0 +1,37 @@
+# Parity gate for the AlphaMissense port.
+#
+#   harness/parity.py --check alphamissense --source-path <AlphaMissense slice>
+#
+# The gate compares vepyr's am_class / am_pathogenicity against real Ensembl VEP
+# running the Perl AlphaMissense.pm over the same region, on every variant key
+# where vepyr's core already agrees with VEP about the transcript and the
+# amino-acid change (AlphaMissense keys off `{ref_aa}{Protein_position}{alt_aa}`,
+# so a core divergence there is not the manifest's fault -- see harness/parity.py).
+
+plugin          = "alphamissense"
+csq_fields      = ["am_class", "am_pathogenicity"]
+region          = "chr22:22000000-23500000"
+
+# AlphaMissense predictions are CC-BY-NC-SA 4.0: the region slice cannot be
+# committed to a public repo, so CI has nothing to build from and prints a loud
+# SKIP. The gate runs on a machine that holds the data, via --source-path.
+redistributable = false
+
+# `version` is the git revision of THIS repo from which vepyr materializes
+# plugins/alphamissense/alphamissense.source.toml. HEAD gates what the branch ships.
+version = "HEAD"
+
+[vep]
+release = "115"
+# `{source}` is substituted with the resolved --source-path, so no machine-specific
+# path is committed. AlphaMissense.pm requires the file to be bgzipped and tabix
+# indexed:  tabix -s 1 -b 2 -e 2 -f -S 1 <file>
+plugin_args = "AlphaMissense,file={source}"
+
+[source]
+url = "https://storage.googleapis.com/dm_alphamissense/AlphaMissense_hg38.tsv.gz"
+# sha256 of the full 613 MB release is deliberately absent rather than guessed:
+# this port was gated against a byte-range slice of it, and inventing a digest for
+# a file we never hashed would be provenance theatre. Fill it in from the machine
+# that holds the full release. The digest of the slice actually used is recorded in
+# the golden's ##vepyr_parity_source_sha256 header.
