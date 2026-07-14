@@ -1,0 +1,81 @@
+# CADD source manifest.
+#
+# Source: whole_genome_SNVs.tsv.gz + gnomad.genomes.r4.0.indel.tsv.gz (CADD
+# v1.7, GRCh38), tabix-indexed, download from
+# https://krishna.gs.washington.edu/download/CADD/v1.7/GRCh38/.
+# VEP plugin: https://github.com/Ensembl/VEP_plugins/blob/release/116/CADD.pm
+#
+# 6 columns (#Chrom, Pos, Ref, Alt, RawScore, PHRED), 1-based GRCh38, bare
+# (non-`chr`-prefixed) contigs. SNV and indel files share this exact schema —
+# per-chromosome builds combine both (VEP's CADD.pm takes `snv=...,indels=...`
+# as two files queried together; we flatten them into one per-chrom TSV before
+# ingest since the plugin_cache builder's public API only overrides a single
+# source path per build).
+#
+# Indel rows carry a shared leading anchor base (VCF convention, e.g.
+# `AG>A`), exactly like ClinVar's raw file — the ingest_sql below replicates
+# the same anchor-trim + `start+1` shift used by `vcf_to_vep_input_allele`
+# (datafusion-bio-function-vep/src/allele.rs) so indel rows land on the same
+# normalized (start, allele_string) key the annotation engine looks up at
+# runtime. SNV rows (ref/alt both length 1) pass through unshifted.
+#
+# Per-variant plugin (CADD.pm matches on position + allele only, no
+# transcript/amino-acid discriminator) — no [[match_column]].
+
+plugin_name       = "cadd"
+coordinate_system = "1-based"
+ingest_sql = """
+WITH trimmed AS (
+    SELECT chrom,
+           CAST(pos AS INT) AS pos,
+           ref,
+           alt,
+           (length(ref) <> 1 OR length(alt) <> 1)
+               AND substr(ref, 1, 1) = substr(alt, 1, 1) AS is_shifted,
+           raw_score,
+           phred
+    FROM plugin_cadd_src
+)
+SELECT chrom,
+       CASE WHEN is_shifted THEN pos + 1 ELSE pos END AS start,
+       CASE WHEN is_shifted THEN pos + 1 ELSE pos END AS end,
+       concat(
+           CASE WHEN is_shifted
+                THEN CASE WHEN length(substr(ref, 2)) = 0 THEN '-' ELSE substr(ref, 2) END
+                ELSE ref END,
+           '/',
+           CASE WHEN is_shifted
+                THEN CASE WHEN length(substr(alt, 2)) = 0 THEN '-' ELSE substr(alt, 2) END
+                ELSE alt END
+       ) AS allele_string,
+       CAST(raw_score AS FLOAT) AS cadd_raw,
+       CAST(phred AS FLOAT) AS cadd_phred
+FROM trimmed
+"""
+
+[[source]]
+provider = "csv"
+# Overridden at build time with --source-path (a per-chrom tabix-extracted
+# TSV combining SNV + indel rows — see manifest header comment above).
+path = "cadd_chr21_combined.tsv"
+  [source.csv]
+  delimiter   = "\t"
+  has_header  = false
+  schema = [
+    { name = "chrom",     type = "Utf8" },
+    { name = "pos",       type = "Utf8" },
+    { name = "ref",       type = "Utf8" },
+    { name = "alt",       type = "Utf8" },
+    { name = "raw_score", type = "Utf8" },
+    { name = "phred",     type = "Utf8" },
+  ]
+
+[[value_columns]]
+column = "cadd_raw"
+csq_field = "CADD_RAW"
+type = "Float32"
+
+[[value_columns]]
+column = "cadd_phred"
+csq_field = "CADD_PHRED"
+type = "Float32"
