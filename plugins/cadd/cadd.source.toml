@@ -21,9 +21,19 @@
 #
 # Per-variant plugin (CADD.pm matches on position + allele only, no
 # transcript/amino-acid discriminator) — no [[match_column]].
+#
+# assume_unique: SNV rows carry single-base ref/alt (allele_string like
+# "A/G"); indel rows are anchor-shifted (allele_string like "G/-" or with a
+# multi-char side) — the two shapes cannot collide with each other, and
+# within either file every (chrom, pos, ref, alt) is itself unique (SNV: one
+# row per possible substitution; indel: gnomAD calls, no duplicate records).
+# So (start, allele_string) can never repeat and the build-time keep-first
+# dedup pass is unnecessary — skipping it removes its HashSet<String> (one
+# heap-allocated key per row), the dominant memory cost on large chromosomes.
 
 plugin_name       = "cadd"
 coordinate_system = "1-based"
+assume_unique     = true
 ingest_sql = """
 WITH trimmed AS (
     SELECT chrom,

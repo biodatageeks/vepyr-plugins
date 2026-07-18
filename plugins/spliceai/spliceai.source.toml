@@ -29,9 +29,17 @@
 # alongside the 8 scores, so the ingest view carries it twice under distinct
 # names (`symbol` for the match key, `symbol_out` for the value column) — the
 # builder's projection rejects two output columns sharing one source name.
+#
+# assume_unique: the masked release carries at most one row per (chrom, pos,
+# ref, alt) (see above), so the runtime probe key (start, allele_string,
+# symbol) can never repeat — the build-time keep-first dedup pass is
+# unnecessary and, on the largest chromosomes, its HashSet<String> (one
+# heap-allocated key per row) is the dominant memory cost. Skipping it was
+# required to build chr1-3 without OOM on a 16GB machine.
 
 plugin_name       = "spliceai"
 coordinate_system = "1-based"
+assume_unique     = true
 ingest_sql = """
 SELECT chrom,
        CAST(pos AS INT) AS start,
