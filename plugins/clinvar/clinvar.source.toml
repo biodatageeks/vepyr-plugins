@@ -4,13 +4,20 @@
 # VEP usage: not a --plugin, a --custom annotation, e.g.
 #   --custom clinvar.vcf.gz,ClinVar,vcf,exact,0,CLNSIG,CLNREVSTAT,CLNDN,CLNVC,CLNVI
 #
+# Real VEP's --custom convention emits a 6th, bare `ClinVar` CSQ field (the
+# short_name itself, no subfield name) populated from the source VCF's ID
+# column -- not just the 5 named CLNSIG/CLNREVSTAT/CLNDN/CLNVC/CLNVI fields.
+# Without it, vepyr's CSQ header has 5 clinvar fields where real VEP's has 6,
+# which fails vepyr_diffly's exact-field-set comparison. So %ID must be
+# extracted too.
+#
 # The plugin_cache provider factory does not wire a native VCF reader yet
 # (`ProviderKind::Vcf` returns "not wired in prototype"), so the raw
 # clinvar.vcf.gz is pre-flattened into a headerless TSV with `bcftools query`
 # before being fed to this manifest as `source_path`:
 #
-#   bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/CLNSIG\t%INFO/CLNREVSTAT\t%INFO/CLNDN\t%INFO/CLNVC\t%INFO/CLNVI\n' clinvar.vcf.gz \
-#     | awk -F'\t' 'BEGIN{OFS="\t"} { for(i=5;i<=9;i++) if($i==".") $i=""; print }' \
+#   bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%ID\t%INFO/CLNSIG\t%INFO/CLNREVSTAT\t%INFO/CLNDN\t%INFO/CLNVC\t%INFO/CLNVI\n' clinvar.vcf.gz \
+#     | awk -F'\t' 'BEGIN{OFS="\t"} { for(i=6;i<=10;i++) if($i==".") $i=""; print }' \
 #     | gzip > clinvar_flat.tsv.gz
 #
 # hg38, 1-based, bare (non-`chr`-prefixed) contigs — matches the variation
@@ -38,7 +45,7 @@ WITH trimmed AS (
            alt,
            (length(ref) <> 1 OR length(alt) <> 1)
                AND substr(ref, 1, 1) = substr(alt, 1, 1) AS is_shifted,
-           clnsig, clnrevstat, clndn, clnvc, clnvi
+           id, clnsig, clnrevstat, clndn, clnvc, clnvi
     FROM plugin_clinvar_src
 )
 SELECT chrom,
@@ -53,6 +60,7 @@ SELECT chrom,
                 THEN CASE WHEN length(substr(alt, 2)) = 0 THEN '-' ELSE substr(alt, 2) END
                 ELSE alt END
        ) AS allele_string,
+       id,
        clnsig,
        clnrevstat,
        clndn,
@@ -74,6 +82,7 @@ path = "clinvar_flat.tsv.gz"
     { name = "pos",        type = "Utf8" },
     { name = "ref",        type = "Utf8" },
     { name = "alt",        type = "Utf8" },
+    { name = "id",         type = "Utf8" },
     { name = "clnsig",     type = "Utf8" },
     { name = "clnrevstat", type = "Utf8" },
     { name = "clndn",      type = "Utf8" },
@@ -83,6 +92,13 @@ path = "clinvar_flat.tsv.gz"
 
 # Field order/names match the VEP --custom short_name_field convention
 # (ClinVar_CLNSIG, ...) used in vepyr_diffly's plugins.py for the golden run.
+# `ClinVar` (bare, no subfield name) is VEP's own --custom short_name marker
+# field, populated from the source VCF's ID column.
+[[value_columns]]
+column = "id"
+csq_field = "ClinVar"
+type = "Utf8"
+
 [[value_columns]]
 column = "clnsig"
 csq_field = "ClinVar_CLNSIG"
