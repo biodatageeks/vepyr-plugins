@@ -7,9 +7,11 @@
 # packs one pipe-delimited prediction per variant:
 #   ALLELE|SYMBOL|DS_AG|DS_AL|DS_DG|DS_DL|DP_AG|DP_AL|DP_DG|DP_DL
 # (ALLELE duplicates VCF ALT and is dropped during flattening.) The masked
-# release checked (100k-record sample) never carries more than one prediction
-# per variant, unlike the "raw" SpliceAI release which can list multiple
-# overlapping-gene predictions comma-joined.
+# release DOES repeat a bare (chrom, pos, ref, alt) key at overlapping-gene
+# loci -- one row per gene, same variant (confirmed empirically: 101,919
+# duplicate (pos,ref,alt) keys over a 9.1M-row chr21:33-40Mb slice, e.g.
+# `21:34073579 C>A` for both SLC5A3 and MRPS6). Uniqueness holds only once
+# `symbol` is added to the key -- see `assume_unique` below.
 #
 # The plugin_cache provider factory does not wire a native VCF reader yet
 # (`ProviderKind::Vcf` returns "not wired in prototype"), so the raw
@@ -18,8 +20,13 @@
 # manifest as `source_path`:
 #
 #   bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/SpliceAI\n' spliceai_scores....vcf.gz \
-#     | awk -F'\t' 'BEGIN{OFS="\t"} { n=split($5,a,"|"); print $1,$2,$3,$4,a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9],a[10] }' \
+#     | awk -F'\t' 'BEGIN{OFS="\t"} { n=split($5,a,"|"); if (n!=10) { print "unexpected SpliceAI field count " n > "/dev/stderr"; exit 1 } print $1,$2,$3,$4,a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9],a[10] }' \
 #     | gzip > spliceai_flat.tsv.gz
+#
+# The n!=10 guard fails loudly rather than silently truncating/misaligning
+# columns if ever pointed at the "raw" (non-masked) release, whose comma-
+# joined multi-gene predictions would split the INFO tag into more than 10
+# pipe-delimited fields.
 #
 # VEP gates SpliceAI by matching the current transcript consequence's gene
 # SYMBOL against the row's own SYMBOL (`_join_transcript` in SpliceAI.pm) —
@@ -30,12 +37,14 @@
 # names (`symbol` for the match key, `symbol_out` for the value column) — the
 # builder's projection rejects two output columns sharing one source name.
 #
-# assume_unique: the masked release carries at most one row per (chrom, pos,
-# ref, alt) (see above), so the runtime probe key (start, allele_string,
-# symbol) can never repeat — the build-time keep-first dedup pass is
-# unnecessary and, on the largest chromosomes, its HashSet<String> (one
-# heap-allocated key per row) is the dominant memory cost. Skipping it was
-# required to build chr1-3 without OOM on a 16GB machine.
+# assume_unique: the runtime probe key is (start, allele_string, symbol), not
+# (start, allele_string) alone -- the bare (chrom, pos, ref, alt) key DOES
+# repeat at overlapping-gene loci (see above), but never with the same
+# symbol twice, so the full key never repeats. Skipping the build-time
+# keep-first dedup pass is safe on that basis; it's also, on the largest
+# chromosomes, the dominant memory cost (its HashSet<String> is one
+# heap-allocated key per row) -- skipping it was required to build chr1-3
+# without OOM on a 16GB machine.
 
 plugin_name       = "spliceai"
 coordinate_system = "1-based"

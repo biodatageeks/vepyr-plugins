@@ -42,12 +42,24 @@ Given a URL or file, answer these first — they decide almost everything else:
    `curl -s "https://storage.googleapis.com/storage/v1/b/<bucket>/o?prefix=<prefix>" | python3 -m json.tool`
    lists objects+sizes with no auth for public buckets). This tells you whether a
    chromosome is even feasible on this machine — see the size table below.
-4. **Does one row = one variant, or can the same `(start, allele_string)` key repeat
-   with different values?** (e.g. AlphaMissense: overlapping UniProt entries CAN
-   repeat a key with different scores — needs dedup. CADD/SpliceAI: structurally
-   cannot repeat — safe for `assume_unique = true`.) Get this wrong and you'll
-   silently keep the wrong row for a duplicate key — reason about it explicitly,
-   don't guess.
+4. **Does one row = one variant, or can the same runtime probe key --
+   `(start, allele_string, <match columns, if any>)`, NOT just
+   `(start, allele_string)` -- repeat with different values?** Get the key
+   wrong and you'll silently keep the wrong row for a duplicate key —
+   reason about the FULL key explicitly, don't guess.
+   - CADD (no match column, key is just `(start, allele_string)`):
+     structurally cannot repeat — all-possible-SNVs plus gnomAD-normalized
+     indels, both unique by construction. Safe for `assume_unique = true`.
+   - SpliceAI (match column `symbol`): the bare `(start, allele_string)`
+     key DOES repeat at overlapping-gene loci -- confirmed empirically,
+     101,919 duplicate `(pos,ref,alt)` keys in a 9.1M-row sample, e.g. the
+     same variant scored once per overlapping gene. It's only safe for
+     `assume_unique = true` because the FULL key includes `symbol`, which
+     never repeats per variant. Checking `(start, allele_string)` alone
+     here would have set the wrong flag.
+   - AlphaMissense (match column `protein_variant`): overlapping UniProt
+     entries CAN repeat even the full key with different scores — needs
+     dedup, `assume_unique` must stay unset.
 
 ### Known source scale (build feasibility on a 16GB machine, learned the hard way)
 
