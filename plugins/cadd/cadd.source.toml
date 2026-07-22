@@ -71,6 +71,11 @@ path = "cadd_chr21_combined.tsv"
   [source.csv]
   delimiter   = "\t"
   has_header  = false
+  # Defense-in-depth, not currently load-bearing: tabix extraction never
+  # emits the source file's own header line, but if a future extraction step
+  # ever leaves it in, this stops it silently becoming a data row (every
+  # column CAST to null) instead of erroring.
+  comment     = "#"
   schema = [
     { name = "chrom",     type = "Utf8" },
     { name = "pos",       type = "Utf8" },

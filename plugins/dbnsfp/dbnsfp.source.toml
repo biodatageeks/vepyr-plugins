@@ -89,6 +89,19 @@ path = "dbnsfp_chr21.tsv"
   [source.csv]
   delimiter  = "\t"
   has_header = false
+  # Defense-in-depth, not currently load-bearing: per-chrom tabix extraction
+  # never emits the source file's own `#chr ...` header line, but if a future
+  # extraction step ever leaves it in, this stops it silently becoming a data
+  # row (every column CAST to null) instead of erroring.
+  comment    = "#"
+  # `schema` below binds these 505 names to columns BY POSITION (bcftools/tabix
+  # output has no header to bind by name against) -- unlike real VEP's
+  # dbNSFP.pm, which reads the file's own header and maps by name, so it stays
+  # correct across dbNSFP releases that reorder columns; this manifest does
+  # not. Verified 2026-07-22: fetched the actual `dbNSFP5.3.1a_grch38.gz`
+  # header (first ~5MB decompressed) and diffed it against this list --
+  # 0/505 mismatches, position for position. Re-verify this diff if the
+  # source file is ever re-downloaded or the cited release changes.
   schema = [
     { name = "chr", type = "Utf8" },
     { name = "pos(1-based)", type = "Utf8" },
