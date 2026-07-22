@@ -85,14 +85,21 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
     `ProviderKind::Vcf` still returns `NotImplemented`; if it's live, point
     `[[source]]` straight at the VCF and use `ingest_sql` to pull the INFO
     subfields you need as named columns.
-  - **Flatten fallback** (always works, proven on ClinVar + SpliceAI): use
+  - **Flatten fallback** (always works, proven on ClinVar + SpliceAI): run
+    `bcftools norm -m -` FIRST to split any multiallelic record into one
+    biallelic record per ALT, THEN
     `bcftools query -r <chrom> -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/<FIELD1>\t...\n'`
     to explode the specific INFO subfields into a headerless TSV per chromosome,
     then feed that to a `provider = "csv"` source exactly like a native-TSV plugin.
-    This is the ONLY option if the VCF provider isn't wired, or if the INFO field
-    is itself pipe/comma-packed (SpliceAI's masked `SpliceAI` tag needed a second
-    `awk` pass after `bcftools query` to split 9 sub-values out of one INFO tag —
-    look at `spliceai.source.toml`'s header comment for the exact one-liner).
+    Skipping `bcftools norm -m -` is a silent-miss trap even if the source you're
+    testing against happens to have zero multiallelic records today: a raw
+    multiallelic `%ALT` comes back comma-joined (e.g. "A,C"), the `allele_string`
+    built from it never matches a single-allele runtime probe, and that record
+    quietly never annotates anything. This is the ONLY flatten option if the VCF
+    provider isn't wired, or if the INFO field is itself pipe/comma-packed
+    (SpliceAI's masked `SpliceAI` tag needed a second `awk` pass after
+    `bcftools query` to split 9 sub-values out of one INFO tag — look at
+    `spliceai.source.toml`'s header comment for the exact one-liner).
 - **Parquet**: `provider = "parquet"` already works, straightforward.
 
 ## 2. Per-chromosome flatten + sort (only if source isn't a single native file)
@@ -155,7 +162,14 @@ row-by-row diff will show false mismatches:
 import pyarrow.parquet as pq
 old = pq.read_table('old.parquet')
 new = pq.read_table('new.parquet')
-keys = [('tier','ascending'), ('start','ascending'), ('allele_string','ascending')]
+# `match_cols` = this plugin's manifest [[match_column]] names, e.g.
+# ['symbol'] for SpliceAI, ['protein_variant'] for AlphaMissense, [] for a
+# per-variant plugin. Sorting by tier/start/allele_string alone leaves rows
+# tied on those three in arbitrary relative order for a match-column plugin
+# -- .equals() would then report a false mismatch on a logically-identical
+# shard just because tied rows landed in a different physical order.
+match_cols = []  # fill in from the manifest under test
+keys = [(k, 'ascending') for k in ('tier', 'start', 'allele_string', *match_cols)]
 assert old.sort_by(keys).combine_chunks().equals(new.sort_by(keys).combine_chunks())
 ```
 

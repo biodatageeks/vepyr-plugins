@@ -14,9 +14,17 @@
 # The plugin_cache provider factory does not wire a native VCF reader yet
 # (`ProviderKind::Vcf` returns "not wired in prototype"), so the raw
 # clinvar.vcf.gz is pre-flattened into a headerless TSV with `bcftools query`
-# before being fed to this manifest as `source_path`:
+# before being fed to this manifest as `source_path`. `bcftools norm -m -`
+# splits any multiallelic record into one biallelic record per ALT first --
+# without it, a multiallelic line's `%ALT` comes back comma-joined (e.g.
+# "A,C"), `ingest_sql`'s `concat(ref,'/',alt)` builds a garbage allele_string
+# like "G/A,C" that can never match a single-allele runtime probe, and that
+# ClinVar record silently never annotates anything. Empirically verified 0
+# multiallelic records in the current clinvar.vcf.gz (4,439,617 rows checked),
+# so this is defensive for a future release rather than a fix for a live bug:
 #
-#   bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%ID\t%INFO/CLNSIG\t%INFO/CLNREVSTAT\t%INFO/CLNDN\t%INFO/CLNVC\t%INFO/CLNVI\n' clinvar.vcf.gz \
+#   bcftools norm -m - clinvar.vcf.gz \
+#     | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%ID\t%INFO/CLNSIG\t%INFO/CLNREVSTAT\t%INFO/CLNDN\t%INFO/CLNVC\t%INFO/CLNVI\n' \
 #     | awk -F'\t' 'BEGIN{OFS="\t"} { for(i=6;i<=10;i++) if($i==".") $i=""; print }' \
 #     | gzip > clinvar_flat.tsv.gz
 #
