@@ -449,6 +449,25 @@ def _over_emission_keys(result: ComparisonResult) -> dict[str, frozenset[str]]:
     return keyed
 
 
+# The exclusion rule, stated precisely
+# -------------------------------------
+# A locus may be dropped from the plugin comparison ONLY for *genuine* core
+# divergence — vepyr and VEP disagreeing about the transcript or the amino-acid
+# change the plugin's discriminator is built from (the blame-attribution rule in
+# the module docstring). It must NEVER be dropped because of multi-allelic CSQ
+# corruption: on an unsplit multi-allelic record vepyr pipe-joins the ALTs into
+# the `Allele` field (vepyr#35), the core drifts as an artefact, and the locus
+# would launder out of the gate into a silent PASS over a real plugin miss.
+# `assert_biallelic()` runs before either engine, so that input can never reach
+# this function — the exclusion set here is always genuine core drift.
+#
+# Residual limit — the rule is NOT fully closed for indels. Even on biallelic
+# input, an indel-scoring plugin (CADD, SpliceAI; Wave-1) can still have its
+# field excluded when vepyr's indel left-align/trim diverges from VEP, because
+# that too surfaces as core drift and is subtracted here. AlphaMissense is
+# SNV-only, so it is unaffected; closing the indel gap needs the shared
+# split/normalize representation tracked alongside the multi-allelic fix
+# (vepyr#35), not this harness.
 def evaluate(
     golden_vcf: str | Path,
     test_vcf: str | Path,
@@ -518,6 +537,59 @@ def evaluate(
 
 
 # ---------------------------------------------------------------------------
+# Input validation: the exclusion rule is only sound on biallelic input
+# ---------------------------------------------------------------------------
+
+
+def assert_biallelic(region_vcf: Path) -> None:
+    """Refuse multi-allelic input; the core-drift exclusion is unsound without it.
+
+    The core-drift EXCLUSION in :func:`evaluate` is only sound on split/biallelic
+    loci: on a multi-allelic record vepyr's CSQ ``Allele``-field corruption
+    (vepyr#35) makes the core disagree with VEP, which would launder a genuine
+    plugin miss out of the gate into a silent PASS. Normalize upstream with
+    ``bcftools norm -m -any -f <fasta>`` (see :func:`normalize_region`) and
+    re-commit the region. Pure-Python — no subprocess — so ``--check`` stays
+    hermetic.
+
+    Raises:
+        HarnessError: A data record's ALT column carries a comma, i.e. an unsplit
+            multi-allelic site.
+    """
+    with region_vcf.open(encoding="utf-8") as fh:
+        for lineno, line in enumerate(fh, 1):
+            if line.startswith("#"):
+                continue
+            cols = line.rstrip("\n").split("\t")
+            if len(cols) >= 5 and "," in cols[4]:
+                raise HarnessError(
+                    f"{region_vcf}:{lineno}: multi-allelic record "
+                    f"({cols[0]}:{cols[1]} {cols[3]}>{cols[4]}). The parity gate's "
+                    f"core-drift exclusion is only sound on biallelic input; split "
+                    f"with `bcftools norm -m -any -f <fasta>` and re-commit. "
+                    f"See vepyr#35."
+                )
+
+
+def normalize_region(raw_vcf: Path, out_vcf: Path, fasta: Path) -> Path:
+    """Split + left-align a region VCF through the ONE shared primitive.
+
+    So that vepyr, VEP and the cache builder all key on identical allele
+    representations. Used by Phase 2 region regeneration (needs bcftools and the
+    mini-cache FASTA). NOT called from ``--check``, which must stay hermetic and
+    pre-validate via :func:`assert_biallelic`.
+    """
+    subprocess.run(
+        ["bcftools", "norm", "-m", "-any", "-f", str(fasta),
+         "-Ov", "-o", str(out_vcf), str(raw_vcf)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return out_vcf
+
+
+# ---------------------------------------------------------------------------
 # --check : build, annotate, compare. No Perl.
 # ---------------------------------------------------------------------------
 
@@ -541,6 +613,11 @@ def run_check(
     workdir: Path,
 ) -> Status:
     """Build the plugin cache, annotate the region, and gate the result."""
+    # Refuse multi-allelic input before doing anything else: the core-drift
+    # exclusion in evaluate() is only sound on biallelic loci (vepyr#35). Fails
+    # fast and stays hermetic — no subprocess, no native import needed to reject.
+    assert_biallelic(region_vcf)
+
     import vepyr  # noqa: PLC0415 — heavy native import; only --check needs it
 
     source = resolve_source(cfg, override=source_override)
@@ -630,6 +707,11 @@ def run_refresh_golden(
     workdir: Path,
 ) -> Status:
     """Run real Ensembl VEP with ``--plugin`` and write the golden."""
+    # Same guard as --check: a golden generated from multi-allelic input would
+    # bake in the very core drift that laundering exploits (vepyr#35). Refuse
+    # before invoking VEP so a golden refresh can never enshrine it.
+    assert_biallelic(region_vcf)
+
     source = resolve_source(cfg, override=source_override)
     if source is None:
         raise HarnessError(

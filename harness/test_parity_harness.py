@@ -24,8 +24,10 @@ import pytest
 from parity import (
     CORE_FIELDS,
     BuildHealthError,
+    HarnessError,
     ParityConfig,
     Status,
+    assert_biallelic,
     assess_build_health,
     evaluate,
     resolve_source,
@@ -304,6 +306,45 @@ def test_warm_zero_with_no_rows_is_fine() -> None:
 def test_healthy_build_passes() -> None:
     """The real AlphaMissense mini-cache build shape."""
     assess_build_health([("chr22", 54624, 147, 54477)])  # must not raise
+
+
+# --------------------------------------------------------------------------
+# Multi-allelic input is refused: the core-drift exclusion in evaluate() is only
+# sound on split/biallelic loci. On an unsplit multi-allelic record vepyr corrupts
+# the CSQ Allele field (vepyr#35), the core disagrees with VEP, and the whole
+# locus is laundered out of the plugin gate — a genuine plugin miss becomes a
+# silent PASS. assert_biallelic() slams that door before either engine runs.
+# --------------------------------------------------------------------------
+
+
+def test_multiallelic_input_is_rejected(tmp_path: Path) -> None:
+    """A comma in ALT is an unsplit multi-allelic site — the gate must refuse it.
+
+    Without this guard the exclusion mechanism could be applied to a locus whose
+    core drift is an artefact of multi-allelic CSQ corruption, not a genuine
+    engine divergence, and a real plugin miss there would go unseen.
+    """
+    region = _write_vcf(
+        tmp_path / "region.vcf",
+        [
+            (22893742, "C", "G", [_entry()]),
+            (22027537, "TACAC", "TACACAC,T", []),  # unsplit multi-allelic
+        ],
+    )
+    with pytest.raises(HarnessError, match="multi-allelic"):
+        assert_biallelic(region)
+
+
+def test_biallelic_input_is_accepted(tmp_path: Path) -> None:
+    """Only biallelic records: the guard must not over-reject clean input."""
+    region = _write_vcf(
+        tmp_path / "region.vcf",
+        [
+            (22893742, "C", "G", [_entry()]),
+            (22900000, "A", "T", [_entry(Feature="ENST2")]),
+        ],
+    )
+    assert_biallelic(region)  # must not raise
 
 
 # --------------------------------------------------------------------------
