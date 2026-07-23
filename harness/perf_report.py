@@ -13,6 +13,7 @@ engine's own baseline, which is the number a reviewer actually reasons about.
 
 from __future__ import annotations
 
+import argparse
 import json
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -160,3 +161,41 @@ def render_pdf(rows: Sequence[CostRow], out: Path | str) -> Path:
     fig.savefig(out, format="pdf", bbox_inches="tight")
     plt.close(fig)
     return out
+
+
+# ---------------------------------------------------------------------------
+# CLI: the gate sbatch runs ``python -m perf_report`` after the driver, globbing
+# every ``perf_*.json`` in a directory into one markdown + one PDF.
+# ---------------------------------------------------------------------------
+
+
+def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="perf_report",
+        description="Fold every perf_*.json in a directory into one markdown + PDF cost table.",
+    )
+    parser.add_argument(
+        "--in", dest="in_dir", required=True, type=Path, help="Directory of perf_*.json files."
+    )
+    parser.add_argument("--md", required=True, type=Path, help="Markdown output path.")
+    parser.add_argument("--pdf", required=True, type=Path, help="PDF output path.")
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Build the cost table from ``--in`` and write both ``--md`` and ``--pdf``."""
+    args = _parse_args(argv)
+    paths = sorted(args.in_dir.glob("perf_*.json"))
+    if not paths:
+        raise SystemExit(f"no perf_*.json under {args.in_dir}")
+    rows = build_cost_table(paths)
+    args.md.parent.mkdir(parents=True, exist_ok=True)
+    args.md.write_text(render_markdown(rows))
+    args.pdf.parent.mkdir(parents=True, exist_ok=True)
+    render_pdf(rows, args.pdf)
+    print(f"[perf] report: {len(rows)} rows -> {args.md}, {args.pdf}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -18,7 +18,9 @@ unit tests) load on a bare machine without the native toolkit.
 
 from __future__ import annotations
 
+import argparse
 import json
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Final
@@ -249,3 +251,81 @@ def run_perf(
     )
     result.write_json(out_dir)
     return result
+
+
+# ---------------------------------------------------------------------------
+# CLI: the gate sbatch shells out to ``python -m perf_plugins`` (one process per
+# plugin), looping the CSV ``--params`` and letting :func:`run_perf` write each
+# ``perf_<plugin>_<param>.json`` into ``--out``.
+# ---------------------------------------------------------------------------
+
+
+def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="perf_plugins",
+        description=(
+            "Benchmark one plugin's marginal cost (baseline vs +plugin) for each "
+            "param profile, writing perf_<plugin>_<param>.json per param."
+        ),
+    )
+    parser.add_argument("--plugin", required=True, help="Plugin name, e.g. alphamissense.")
+    parser.add_argument(
+        "--params",
+        default="everything,hgvs",
+        help=f"CSV of param profiles (subset of {','.join(sorted(PARAM_FLAGS))}).",
+    )
+    parser.add_argument("--region-vcf", required=True, type=Path, help="Biallelic region to annotate.")
+    parser.add_argument(
+        "--mini-cache",
+        required=True,
+        type=Path,
+        help="Variation mini-cache: tiering source for the build AND annotate cache_dir.",
+    )
+    parser.add_argument(
+        "--plugins-repo",
+        required=True,
+        type=Path,
+        help="vepyr-plugins checkout the manifest is resolved from (the PR checkout).",
+    )
+    parser.add_argument(
+        "--source-path", required=True, type=Path, help="Plugin source-data slice (e.g. the AM TSV)."
+    )
+    parser.add_argument("--out", required=True, type=Path, help="Output dir for caches, VCFs and JSON.")
+    parser.add_argument(
+        "--version",
+        default="HEAD",
+        help="Git revision of --plugins-repo to resolve the manifest at (default HEAD).",
+    )
+    parser.add_argument(
+        "--no-overwrite",
+        action="store_true",
+        help="Reuse an existing plugin cache instead of rebuilding it.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Run the driver for one plugin across every ``--params`` profile."""
+    args = _parse_args(argv)
+    params = [p.strip() for p in args.params.split(",") if p.strip()]
+    if not params:
+        raise SystemExit("--params yielded no profiles")
+    for param in params:
+        run_perf(
+            args.plugin,
+            param,
+            args.region_vcf,
+            args.mini_cache,
+            args.plugins_repo,
+            args.source_path,
+            args.out,
+            version=args.version,
+            overwrite=not args.no_overwrite,
+        )
+        out_json = args.out / f"perf_{args.plugin}_{param}.json"
+        print(f"[perf] {args.plugin} {param}: wrote {out_json}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
