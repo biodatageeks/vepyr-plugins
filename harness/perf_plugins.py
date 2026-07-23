@@ -23,7 +23,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Final
 
-from perf import PerfSample, dir_bytes, file_bytes, measure
+from perf import PerfSample, dir_bytes, file_bytes, measure, measure_call
 
 # The two annotation profiles the benchmark reports, expressed as the exact
 # keyword arguments ``vepyr.annotate`` accepts. Derived from ``annotate()``'s
@@ -207,31 +207,35 @@ def run_perf(
             overwrite=overwrite,
         )
 
-    # 2. Baseline: no plugin cache attached.
+    # 2. Baseline: no plugin cache attached. Run in its OWN process so the peak
+    #    RSS is this run's alone — ru_maxrss is a per-process monotonic
+    #    high-water mark, so sharing a process with the build or the +plugin run
+    #    would silently fold their peaks into the baseline's.
     base_out = out_dir / f"{plugin}_{param}_baseline.vcf"
-    with measure() as baseline:
-        vepyr.annotate(
-            str(region_vcf),
-            str(mini_cache),
-            reference_fasta=str(fasta),
-            plugin_cache_root=None,
-            output_vcf=str(base_out),
-            show_progress=False,
-            **flags,
-        )
+    _, baseline = measure_call(
+        vepyr.annotate,
+        str(region_vcf),
+        str(mini_cache),
+        reference_fasta=str(fasta),
+        plugin_cache_root=None,
+        output_vcf=str(base_out),
+        show_progress=False,
+        **flags,
+    )
 
-    # 3. +plugin: the same run with the built plugin cache attached.
+    # 3. +plugin: the same run with the built plugin cache attached, likewise in
+    #    a fresh process so baseline and +plugin peaks are independently honest.
     plug_out = out_dir / f"{plugin}_{param}_withplugin.vcf"
-    with measure() as withplugin:
-        vepyr.annotate(
-            str(region_vcf),
-            str(mini_cache),
-            reference_fasta=str(fasta),
-            plugin_cache_root=str(plugin_cache),
-            output_vcf=str(plug_out),
-            show_progress=False,
-            **flags,
-        )
+    _, withplugin = measure_call(
+        vepyr.annotate,
+        str(region_vcf),
+        str(mini_cache),
+        reference_fasta=str(fasta),
+        plugin_cache_root=str(plugin_cache),
+        output_vcf=str(plug_out),
+        show_progress=False,
+        **flags,
+    )
 
     result = PerfResult.from_samples(
         plugin,

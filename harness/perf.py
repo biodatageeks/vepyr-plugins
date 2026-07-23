@@ -19,10 +19,12 @@ driver therefore runs each ``annotate()`` in its own fresh process via
 
 from __future__ import annotations
 
+import multiprocessing as mp
 import os
 import resource
 import sys
 import time
+import traceback
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -79,3 +81,65 @@ def file_bytes(p: Path | str) -> int:
 def dir_bytes(p: Path | str) -> int:
     """Recursive on-disk size of every regular file under ``p``, in bytes."""
     return sum(f.stat().st_size for f in Path(p).rglob("*") if f.is_file())
+
+
+# ---------------------------------------------------------------------------
+# Subprocess isolation: honest per-run peak RSS.
+# ---------------------------------------------------------------------------
+
+# "spawn" (not "fork") gives a pristine interpreter with its own address space,
+# so ru_maxrss starts from the interpreter baseline rather than inheriting the
+# parent's high-water mark — the whole point of isolating each annotate().
+_SPAWN = mp.get_context("spawn")
+
+
+def _child_target(conn, fn, args, kwargs) -> None:  # pragma: no cover - child process
+    """Run ``fn(*args, **kwargs)`` in the child; ship (result, sample) back.
+
+    The child is fresh, so its ``ru_maxrss`` is this call's own peak. On failure
+    the formatted traceback is sent instead, so the error surfaces in the parent
+    rather than vanishing with the process.
+    """
+    try:
+        with measure() as sample:
+            result = fn(*args, **kwargs)
+        conn.send(("ok", result, sample.elapsed_s, sample.peak_rss_bytes))
+    except BaseException:  # noqa: BLE001 - relayed and re-raised in the parent
+        conn.send(("err", traceback.format_exc(), 0.0, 0))
+    finally:
+        conn.close()
+
+
+def measure_call[T](fn, /, *args, **kwargs) -> tuple[T, PerfSample]:
+    """Run ``fn(*args, **kwargs)`` in a fresh spawned process; measure it there.
+
+    Returns ``(result, PerfSample)`` where ``peak_rss_bytes`` is the child's own
+    peak — uncontaminated by anything the parent, or a prior call, allocated.
+    ``fn`` and its arguments must be picklable (``spawn`` re-imports the child):
+    the module-level ``vepyr.annotate`` and its str/bool arguments are.
+
+    Raises:
+        RuntimeError: the child raised (its traceback is embedded) or died
+            without sending a result (e.g. an OOM kill).
+    """
+    parent_conn, child_conn = _SPAWN.Pipe(duplex=False)
+    proc = _SPAWN.Process(target=_child_target, args=(child_conn, fn, args, kwargs))
+    proc.start()
+    child_conn.close()  # parent holds only the read end, so recv unblocks on exit
+    name = getattr(fn, "__name__", repr(fn))
+    try:
+        payload = parent_conn.recv()
+    except EOFError as exc:
+        proc.join()
+        raise RuntimeError(
+            f"isolated call to {name!r} produced no result "
+            f"(child exit code {proc.exitcode})"
+        ) from exc
+    finally:
+        parent_conn.close()
+    proc.join()
+
+    status, result, elapsed_s, peak_rss_bytes = payload
+    if status == "err":
+        raise RuntimeError(f"isolated call to {name!r} failed:\n{result}")
+    return result, PerfSample(elapsed_s=elapsed_s, peak_rss_bytes=peak_rss_bytes)
