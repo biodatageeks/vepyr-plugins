@@ -80,12 +80,29 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
   use `provider = "csv"` directly in `[[source]]`, pointing at the file (or the
   per-chrom flattened file — see step 2). No preprocessing needed.
 - **VCF** (INFO-packed, e.g. `AC=...;AN=...;AF=...`): two options —
-  - **Native VCF provider** (`provider = "vcf"`) if wired in this workspace —
-    check `datafusion-bio-functions/.../plugin_cache/provider.rs` for whether
-    `ProviderKind::Vcf` still returns `NotImplemented`; if it's live, point
-    `[[source]]` straight at the VCF and use `ingest_sql` to pull the INFO
-    subfields you need as named columns.
-  - **Flatten fallback** (always works, proven on ClinVar + SpliceAI): run
+  - **Native VCF provider** (`provider = "vcf"`) — `ProviderKind::Vcf` is wired
+    (`datafusion-bio-functions/.../plugin_cache/provider.rs`, landed with the
+    streaming-write/VCF-provider PR): point `[[source]]` straight at the raw
+    VCF and use `ingest_sql` to pull the INFO subfields you need as named
+    columns (quote them, e.g. `"CLNSIG" AS clnsig` — VCF INFO tags are
+    case-sensitive column names in the generated schema, and an unquoted
+    identifier gets lowercase-folded by the SQL parser and won't resolve).
+    It also doesn't split multiallelic records itself — it pipe-joins ALT
+    alleles into one string (e.g. VCF's `A,C` becomes `"A|C"`), the exact
+    same trap the flatten path's `bcftools norm -m -` step guards against;
+    `UNNEST(string_to_array(alt, '|'))` in `ingest_sql` replicates that split.
+    **Known gap, confirmed empirically (2026-07-29) on ClinVar**: the VCF
+    provider's scan can run multi-partition, and the tier-inheritance LEFT
+    JOIN (`plugin_cache/join.rs`) doesn't guarantee it preserves the probe
+    side's row order the way a single-partition CSV/TSV scan implicitly does
+    — the builder's `assert_start_monotonic` guard (by design) then refuses
+    to write, with "tier shard write is not position-ascending". This needs
+    a Rust-side fix (constrain the VCF-sourced scan to a single partition, or
+    add an explicit re-sort after the tier join) before `provider = "vcf"` is
+    safe to rely on for a real build — **use the flatten fallback below until
+    that lands**, even though the native provider parses correctly today.
+  - **Flatten fallback** (always works, proven on ClinVar + SpliceAI, and the
+    currently-recommended default given the VCF-provider gap above): run
     `bcftools norm -m -` FIRST to split any multiallelic record into one
     biallelic record per ALT, THEN
     `bcftools query -r <chrom> -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/<FIELD1>\t...\n'`
@@ -95,11 +112,10 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
     testing against happens to have zero multiallelic records today: a raw
     multiallelic `%ALT` comes back comma-joined (e.g. "A,C"), the `allele_string`
     built from it never matches a single-allele runtime probe, and that record
-    quietly never annotates anything. This is the ONLY flatten option if the VCF
-    provider isn't wired, or if the INFO field is itself pipe/comma-packed
-    (SpliceAI's masked `SpliceAI` tag needed a second `awk` pass after
-    `bcftools query` to split 9 sub-values out of one INFO tag — look at
-    `spliceai.source.toml`'s header comment for the exact one-liner).
+    quietly never annotates anything. This is also required if the INFO field is
+    itself pipe/comma-packed (SpliceAI's masked `SpliceAI` tag needed a second
+    `awk` pass after `bcftools query` to split 9 sub-values out of one INFO tag —
+    look at `spliceai.source.toml`'s header comment for the exact one-liner).
 - **Parquet**: `provider = "parquet"` already works, straightforward.
 
 ## 2. Per-chromosome flatten + sort (only if source isn't a single native file)
@@ -127,7 +143,11 @@ already globally position-sorted — no `gsort` needed in that case.
 ```python
 import vepyr
 result = vepyr.build_plugin_cache(
-    '<plugin_name>', '<branch>',           # branch = the datafusion-bio-functions git ref to build against
+    '<plugin_name>', '<version>',          # version = the vepyr-plugins git ref/tag to resolve
+                                            # <plugin_name>.source.toml from (NOT a
+                                            # datafusion-bio-functions ref — that's fixed by
+                                            # whatever datafusion-bio-function-vep build vepyr
+                                            # itself is linked against).
     source_path='<path to flattened/sorted TSV, or raw file if no flattening needed>',
     cache_dir='<core Ensembl cache dir, e.g. .../116_GRCh38_merged>',
     plugin_cache_root='<plugin cache output root>',
@@ -135,6 +155,14 @@ result = vepyr.build_plugin_cache(
     plugins_repo='<path to this vepyr-plugins checkout>',
 )
 ```
+
+**`plugins_repo` + `version` resolve via `git worktree add <version>`, not your
+working tree.** Editing a `.source.toml` locally and re-running the build
+without committing first silently rebuilds from the *old, committed* manifest
+— you'll see stale-schema errors that look unrelated to your edit (e.g. a CSV
+field-count mismatch after switching `provider = "tsv"` to `"vcf"`). Commit
+the manifest change in `plugins_repo` (a local commit is enough, no push
+needed) before iterating.
 
 Memory is bounded (~3-4GB RSS regardless of chromosome size, confirmed on
 chromosomes up to 482M rows) as of the streaming-write fix in

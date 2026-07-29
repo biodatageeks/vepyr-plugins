@@ -11,17 +11,22 @@
 # which fails vepyr_diffly's exact-field-set comparison. So %ID must be
 # extracted too.
 #
-# The plugin_cache provider factory does not wire a native VCF reader yet
-# (`ProviderKind::Vcf` returns "not wired in prototype"), so the raw
-# clinvar.vcf.gz is pre-flattened into a headerless TSV with `bcftools query`
-# before being fed to this manifest as `source_path`. `bcftools norm -m -`
-# splits any multiallelic record into one biallelic record per ALT first --
-# without it, a multiallelic line's `%ALT` comes back comma-joined (e.g.
-# "A,C"), `ingest_sql`'s `concat(ref,'/',alt)` builds a garbage allele_string
-# like "G/A,C" that can never match a single-allele runtime probe, and that
-# ClinVar record silently never annotates anything. Empirically verified 0
-# multiallelic records in the current clinvar.vcf.gz (4,439,617 rows checked),
-# so this is defensive for a future release rather than a fix for a live bug:
+# `ProviderKind::Vcf` is wired (see SKILL.md step 1), but using it directly
+# for this manifest currently hits a separate, confirmed bug: its scan can
+# run multi-partition, and the tier-inheritance join doesn't guarantee it
+# preserves row order the way this manifest's single-partition TSV read
+# implicitly does -- the builder's monotonicity guard then refuses to write
+# ("tier shard write is not position-ascending"). That needs a Rust-side fix
+# (see SKILL.md), so for now the raw clinvar.vcf.gz is pre-flattened into a
+# headerless TSV with `bcftools query` before being fed to this manifest as
+# `source_path`. `bcftools norm -m -` splits any multiallelic record into one
+# biallelic record per ALT first -- without it, a multiallelic line's `%ALT`
+# comes back comma-joined (e.g. "A,C"), `ingest_sql`'s `concat(ref,'/',alt)`
+# builds a garbage allele_string like "G/A,C" that can never match a
+# single-allele runtime probe, and that ClinVar record silently never
+# annotates anything. Empirically verified 0 multiallelic records in the
+# current clinvar.vcf.gz (4,439,617 rows checked), so this remains defensive
+# for a future release rather than a fix for a live bug:
 #
 #   bcftools norm -m - clinvar.vcf.gz \
 #     | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%ID\t%INFO/CLNSIG\t%INFO/CLNREVSTAT\t%INFO/CLNDN\t%INFO/CLNVC\t%INFO/CLNVI\n' \
