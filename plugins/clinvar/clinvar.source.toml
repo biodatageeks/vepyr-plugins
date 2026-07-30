@@ -11,27 +11,34 @@
 # which fails vepyr_diffly's exact-field-set comparison. So %ID must be
 # extracted too.
 #
-# `ProviderKind::Vcf` is wired (see SKILL.md step 1), but using it directly
-# for this manifest currently hits a separate, confirmed bug: its scan can
-# run multi-partition, and the tier-inheritance join doesn't guarantee it
-# preserves row order the way this manifest's single-partition TSV read
-# implicitly does -- the builder's monotonicity guard then refuses to write
-# ("tier shard write is not position-ascending"). That needs a Rust-side fix
-# (see SKILL.md), so for now the raw clinvar.vcf.gz is pre-flattened into a
-# headerless TSV with `bcftools query` before being fed to this manifest as
-# `source_path`. `bcftools norm -m -` splits any multiallelic record into one
-# biallelic record per ALT first -- without it, a multiallelic line's `%ALT`
-# comes back comma-joined (e.g. "A,C"), `ingest_sql`'s `concat(ref,'/',alt)`
-# builds a garbage allele_string like "G/A,C" that can never match a
-# single-allele runtime probe, and that ClinVar record silently never
-# annotates anything. Empirically verified 0 multiallelic records in the
-# current clinvar.vcf.gz (4,439,617 rows checked), so this remains defensive
-# for a future release rather than a fix for a live bug:
+# `ProviderKind::Vcf` is used directly here -- no bcftools/awk preprocessing,
+# self-contained. A sparse plugin like ClinVar (far fewer rows per chromosome
+# than the variation shard) can land on the tier join's hash-build side,
+# whose order a hash join doesn't preserve; `build_plugin_chrom` handles this
+# automatically (retries with an explicit sort rather than failing the
+# build), no manifest-level action needed.
 #
-#   bcftools norm -m - clinvar.vcf.gz \
-#     | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%ID\t%INFO/CLNSIG\t%INFO/CLNREVSTAT\t%INFO/CLNDN\t%INFO/CLNVC\t%INFO/CLNVI\n' \
-#     | awk -F'\t' 'BEGIN{OFS="\t"} { for(i=6;i<=10;i++) if($i==".") $i=""; print }' \
-#     | gzip > clinvar_flat.tsv.gz
+# `array_to_string(..., ',')` on CLNSIG/CLNREVSTAT/CLNDN/CLNVI: the VCF
+# provider exposes Number=. INFO fields as `List<Utf8>` (even when a given
+# record only has one element), so referencing them bare renders as
+# `[Uncertain_significance]` instead of `Uncertain_significance`. CLNVC is
+# Number=1 (scalar) and must NOT be wrapped -- `array_to_string` on a
+# non-list column is a type error.
+#
+# `UNNEST(string_to_array(alt, '|'))` splits a multiallelic record's `alt`
+# (the VCF provider pipe-joins multiple ALTs into one string, e.g. "A|C" for
+# a raw-VCF "A,C") into one row per allele, so a multiallelic line can never
+# silently build a garbage allele_string like "G/A|C" that no single-allele
+# runtime probe can match. Defensive: the current clinvar.vcf.gz has 0
+# multiallelic records (checked via `bcftools norm -m -` count), but the
+# split has to happen here rather than in a flatten pre-pass since VCF is the
+# live path now.
+#
+# `ALT = "."` (VCF's "no called alternate allele" marker) comes back as an
+# empty string from this provider, not the literal `.` character -- it
+# parses VCF semantics rather than echoing raw text. A `bcftools query`-based
+# reference build would keep the literal `.` instead; that's a
+# source-parsing difference to expect, not a defect in either path.
 #
 # hg38, 1-based, bare (non-`chr`-prefixed) contigs — matches the variation
 # cache's contig convention natively. Per-variant (no [[match_column]]):
@@ -51,15 +58,28 @@ coordinate_system = "1-based"
 # ClinVar hits on chr21, 448/448 SNVs matched, 0/54 indels matched, before this
 # fix.
 ingest_sql = """
-WITH trimmed AS (
+WITH exploded AS (
     SELECT chrom,
-           CAST(pos AS INT) AS pos,
+           CAST(start AS INT) AS pos,
+           ref,
+           unnest(string_to_array(alt, '|')) AS alt,
+           id,
+           array_to_string("CLNSIG", ',') AS clnsig,
+           array_to_string("CLNREVSTAT", ',') AS clnrevstat,
+           array_to_string("CLNDN", ',') AS clndn,
+           "CLNVC" AS clnvc,
+           array_to_string("CLNVI", ',') AS clnvi
+    FROM plugin_clinvar_src
+),
+trimmed AS (
+    SELECT chrom,
+           pos,
            ref,
            alt,
            (length(ref) <> 1 OR length(alt) <> 1)
                AND substr(ref, 1, 1) = substr(alt, 1, 1) AS is_shifted,
            id, clnsig, clnrevstat, clndn, clnvc, clnvi
-    FROM plugin_clinvar_src
+    FROM exploded
 )
 SELECT chrom,
        CASE WHEN is_shifted THEN pos + 1 ELSE pos END AS start,
@@ -83,25 +103,9 @@ FROM trimmed
 """
 
 [[source]]
-provider = "tsv"
-# Overridden at build time with --source-path (the flattened TSV above).
-path = "clinvar_flat.tsv.gz"
-  [source.csv]
-  delimiter   = "\t"
-  has_header  = false
-  compression = "gzip"
-  schema = [
-    { name = "chrom",      type = "Utf8" },
-    { name = "pos",        type = "Utf8" },
-    { name = "ref",        type = "Utf8" },
-    { name = "alt",        type = "Utf8" },
-    { name = "id",         type = "Utf8" },
-    { name = "clnsig",     type = "Utf8" },
-    { name = "clnrevstat", type = "Utf8" },
-    { name = "clndn",      type = "Utf8" },
-    { name = "clnvc",      type = "Utf8" },
-    { name = "clnvi",      type = "Utf8" },
-  ]
+provider = "vcf"
+# Overridden at build time with --source-path (the raw clinvar.vcf.gz).
+path = "clinvar.vcf.gz"
 
 # Field order/names match the VEP --custom short_name_field convention
 # (ClinVar_CLNSIG, ...) used in vepyr_diffly's plugins.py for the golden run.

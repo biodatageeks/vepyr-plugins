@@ -13,16 +13,13 @@
 # `21:34073579 C>A` for both SLC5A3 and MRPS6). Uniqueness holds only once
 # `symbol` is added to the key -- see `assume_unique` below.
 #
-# `ProviderKind::Vcf` is wired (see SKILL.md step 1), but isn't a fit for
-# this manifest regardless: the masked SpliceAI INFO tag packs 9 sub-values
-# into one pipe-delimited string (see below), and `ingest_sql` over the
-# native VCF provider only gets that tag as a single opaque column -- it
-# can't split it into 9 named columns without a second pass. (The VCF
-# provider currently also has a separate, confirmed row-order bug with the
-# tier-inheritance join for multi-partition scans -- see SKILL.md and
-# clinvar.source.toml -- so it wouldn't be usable here yet even for a source
-# that didn't need the awk split.) So the raw spliceai_scores...vcf.gz is
-# pre-flattened into a headerless TSV, splitting the packed SpliceAI INFO tag
+# `ProviderKind::Vcf` is wired (see SKILL.md step 1) and its previous
+# row-order bug is fixed (see clinvar.source.toml), but it still isn't a fit
+# for this manifest: the masked SpliceAI INFO tag packs 9 sub-values into one
+# pipe-delimited string (see below), and `ingest_sql` over the native VCF
+# provider only gets that tag as a single opaque column -- it can't split it
+# into 9 named columns without a second pass. So the raw spliceai_scores...vcf.gz
+# is pre-flattened into a headerless TSV, splitting the packed SpliceAI INFO tag
 # into its 9 components, before being fed to this manifest as `source_path`:
 #
 #   bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/SpliceAI\n' spliceai_scores....vcf.gz \

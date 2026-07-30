@@ -81,41 +81,54 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
   per-chrom flattened file — see step 2). No preprocessing needed.
 - **VCF** (INFO-packed, e.g. `AC=...;AN=...;AF=...`): two options —
   - **Native VCF provider** (`provider = "vcf"`) — `ProviderKind::Vcf` is wired
-    (`datafusion-bio-functions/.../plugin_cache/provider.rs`, landed with the
-    streaming-write/VCF-provider PR): point `[[source]]` straight at the raw
-    VCF and use `ingest_sql` to pull the INFO subfields you need as named
-    columns (quote them, e.g. `"CLNSIG" AS clnsig` — VCF INFO tags are
-    case-sensitive column names in the generated schema, and an unquoted
-    identifier gets lowercase-folded by the SQL parser and won't resolve).
-    It also doesn't split multiallelic records itself — it pipe-joins ALT
-    alleles into one string (e.g. VCF's `A,C` becomes `"A|C"`), the exact
-    same trap the flatten path's `bcftools norm -m -` step guards against;
-    `UNNEST(string_to_array(alt, '|'))` in `ingest_sql` replicates that split.
-    **Known gap, confirmed empirically (2026-07-29) on ClinVar**: the VCF
-    provider's scan can run multi-partition, and the tier-inheritance LEFT
-    JOIN (`plugin_cache/join.rs`) doesn't guarantee it preserves the probe
-    side's row order the way a single-partition CSV/TSV scan implicitly does
-    — the builder's `assert_start_monotonic` guard (by design) then refuses
-    to write, with "tier shard write is not position-ascending". This needs
-    a Rust-side fix (constrain the VCF-sourced scan to a single partition, or
-    add an explicit re-sort after the tier join) before `provider = "vcf"` is
-    safe to rely on for a real build — **use the flatten fallback below until
-    that lands**, even though the native provider parses correctly today.
-  - **Flatten fallback** (always works, proven on ClinVar + SpliceAI, and the
-    currently-recommended default given the VCF-provider gap above): run
-    `bcftools norm -m -` FIRST to split any multiallelic record into one
-    biallelic record per ALT, THEN
-    `bcftools query -r <chrom> -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/<FIELD1>\t...\n'`
-    to explode the specific INFO subfields into a headerless TSV per chromosome,
-    then feed that to a `provider = "csv"` source exactly like a native-TSV plugin.
-    Skipping `bcftools norm -m -` is a silent-miss trap even if the source you're
-    testing against happens to have zero multiallelic records today: a raw
-    multiallelic `%ALT` comes back comma-joined (e.g. "A,C"), the `allele_string`
-    built from it never matches a single-allele runtime probe, and that record
-    quietly never annotates anything. This is also required if the INFO field is
-    itself pipe/comma-packed (SpliceAI's masked `SpliceAI` tag needed a second
-    `awk` pass after `bcftools query` to split 9 sub-values out of one INFO tag —
-    look at `spliceai.source.toml`'s header comment for the exact one-liner).
+    (`datafusion-bio-functions/.../plugin_cache/provider.rs`), self-contained,
+    no bcftools/awk. Point `[[source]]` straight at the raw VCF and use
+    `ingest_sql` to pull the INFO subfields you need:
+    - Quote the column, e.g. `"CLNSIG" AS clnsig` — VCF INFO tags are
+      case-sensitive column names in the generated schema, and an unquoted
+      identifier gets lowercase-folded by the SQL parser and won't resolve.
+    - Wrap `Number=.` (multi-value) INFO fields with `array_to_string(..., ',')`
+      — the provider exposes them as `List<Utf8>` even when a given record only
+      has one element, so a bare reference renders as `[Uncertain_significance]`
+      instead of `Uncertain_significance`. A `Number=1` (scalar) field must
+      NOT be wrapped — `array_to_string` on a non-list column is a type error;
+      check the field's `Number=` in the VCF header before deciding.
+    - It doesn't split multiallelic records itself — it pipe-joins ALT alleles
+      into one string (e.g. VCF's `A,C` becomes `"A|C"`), the exact same trap
+      the flatten path's `bcftools norm -m -` step guards against;
+      `unnest(string_to_array(alt, '|'))` in `ingest_sql`'s `SELECT` list
+      (DataFusion supports unnest directly in the projection, not just as a
+      table-valued FROM clause) replicates that split.
+    - `ALT = "."` (VCF's "no called alternate allele" marker) renders as an
+      empty string here, not the literal `.` character — the provider parses
+      VCF semantics, it doesn't echo raw text. `bcftools query`-based sources
+      (the flatten fallback, or any hand-rolled TSV/BED/Parquet built from
+      `%ALT`) keep the literal `.` instead. If cross-checking a manifest
+      against a bcftools-derived reference, expect `allele_string` to differ
+      on exactly these records — that's a source-parsing difference, not a
+      bug in either path. See `clinvar.source.toml` for a full manifest using
+      this provider.
+    - A sparse plugin (far fewer rows per chromosome than the variation
+      shard, e.g. ClinVar) can land on the tier join's hash-build side, whose
+      row order a hash join doesn't preserve. `build_plugin_chrom` detects
+      this (`assert_start_monotonic`) and retries with an explicit sort
+      rather than failing the build — no manifest-level action needed, this
+      is handled automatically.
+  - **Flatten fallback** (bcftools/awk pre-pass, `provider = "csv"` on the
+    result): still the right call when the INFO field itself is
+    pipe/comma-packed into sub-values the native provider can't split without
+    a second pass (SpliceAI's masked `SpliceAI` tag needed `awk` to pull 9
+    sub-values out of one INFO tag — see `spliceai.source.toml`'s header
+    comment). For a source whose columns map 1:1 to VCF fields, prefer the
+    native provider above instead.
+- **BED** (`chrom, start, end` + optional extra columns): `provider = "bed"` —
+  `ProviderKind::Bed` is wired via `datafusion-bio-format-bed`'s
+  `BedTableProvider`. Its schema is only ever `chrom, start, end, name`
+  regardless of the file's actual column count (BED4/5/6 select how many raw
+  columns the reader parses per line, not how many get exposed) — a source
+  needing more than one extra field packs it into `name` (e.g. `id|score`)
+  and splits it back out in `ingest_sql` with `split_part`, the same trick
+  SpliceAI's flattened INFO tag uses.
 - **Parquet**: `provider = "parquet"` already works, straightforward.
 
 ## 2. Per-chromosome flatten + sort (only if source isn't a single native file)
