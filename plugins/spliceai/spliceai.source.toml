@@ -6,30 +6,22 @@
 # hg38, 1-based, bare (non-`chr`-prefixed) contigs. Single INFO tag `SpliceAI`
 # packs one pipe-delimited prediction per variant:
 #   ALLELE|SYMBOL|DS_AG|DS_AL|DS_DG|DS_DL|DP_AG|DP_AL|DP_DG|DP_DL
-# (ALLELE duplicates VCF ALT and is dropped during flattening.) The masked
-# release DOES repeat a bare (chrom, pos, ref, alt) key at overlapping-gene
-# loci -- one row per gene, same variant (confirmed empirically: 101,919
-# duplicate (pos,ref,alt) keys over a 9.1M-row chr21:33-40Mb slice, e.g.
-# `21:34073579 C>A` for both SLC5A3 and MRPS6). Uniqueness holds only once
-# `symbol` is added to the key -- see `assume_unique` below.
+# (ALLELE duplicates VCF ALT and is dropped.) The masked release DOES repeat a
+# bare (chrom, pos, ref, alt) key at overlapping-gene loci -- one row per
+# gene, same variant (confirmed empirically: 101,919 duplicate (pos,ref,alt)
+# keys over a 9.1M-row chr21:33-40Mb slice, e.g. `21:34073579 C>A` for both
+# SLC5A3 and MRPS6). Uniqueness holds only once `symbol` is added to the key
+# -- see `assume_unique` below.
 #
-# `ProviderKind::Vcf` is wired (see SKILL.md step 1) and its previous
-# row-order bug is fixed (see clinvar.source.toml), but it still isn't a fit
-# for this manifest: the masked SpliceAI INFO tag packs 9 sub-values into one
-# pipe-delimited string (see below), and `ingest_sql` over the native VCF
-# provider only gets that tag as a single opaque column -- it can't split it
-# into 9 named columns without a second pass. So the raw spliceai_scores...vcf.gz
-# is pre-flattened into a headerless TSV, splitting the packed SpliceAI INFO tag
-# into its 9 components, before being fed to this manifest as `source_path`:
-#
-#   bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/SpliceAI\n' spliceai_scores....vcf.gz \
-#     | awk -F'\t' 'BEGIN{OFS="\t"} { n=split($5,a,"|"); if (n!=10) { print "unexpected SpliceAI field count " n > "/dev/stderr"; exit 1 } print $1,$2,$3,$4,a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9],a[10] }' \
-#     | gzip > spliceai_flat.tsv.gz
-#
-# The n!=10 guard fails loudly rather than silently truncating/misaligning
-# columns if ever pointed at the "raw" (non-masked) release, whose comma-
-# joined multi-gene predictions would split the INFO tag into more than 10
-# pipe-delimited fields.
+# `ProviderKind::Vcf` is used directly here -- no bcftools/awk preprocessing.
+# The header declares `SpliceAI` as `Number=.`, so the provider exposes it as
+# `List<Utf8>` (see clinvar.source.toml's array_to_string note); each row
+# carries exactly one packed prediction (overlapping genes are separate rows,
+# not multiple array elements -- see above), so `array_element(..., 1)` pulls
+# it out as a plain string before `split_part` on `|` breaks it into its 9
+# components. `array_element` rather than `array_to_string` because we want
+# exactly the one element, not a comma-join that would silently paper over
+# an unexpected 2+-element row instead of erroring on the CAST that follows.
 #
 # VEP gates SpliceAI by matching the current transcript consequence's gene
 # SYMBOL against the row's own SYMBOL (`_join_transcript` in SpliceAI.pm) —
@@ -53,46 +45,36 @@ plugin_name       = "spliceai"
 coordinate_system = "1-based"
 assume_unique     = true
 ingest_sql = """
+WITH unpacked AS (
+    SELECT chrom,
+           CAST(start AS INT) AS pos,
+           ref,
+           alt,
+           array_element("SpliceAI", 1) AS packed
+    FROM plugin_spliceai_src
+)
 SELECT chrom,
-       CAST(pos AS INT) AS start,
-       CAST(pos AS INT) AS end,
+       pos AS start,
+       pos AS end,
        concat(ref, '/', alt) AS allele_string,
-       symbol,
-       symbol AS symbol_out,
-       CAST(ds_ag AS FLOAT) AS ds_ag,
-       CAST(ds_al AS FLOAT) AS ds_al,
-       CAST(ds_dg AS FLOAT) AS ds_dg,
-       CAST(ds_dl AS FLOAT) AS ds_dl,
-       CAST(dp_ag AS INT) AS dp_ag,
-       CAST(dp_al AS INT) AS dp_al,
-       CAST(dp_dg AS INT) AS dp_dg,
-       CAST(dp_dl AS INT) AS dp_dl
-FROM plugin_spliceai_src
+       split_part(packed, '|', 2) AS symbol,
+       split_part(packed, '|', 2) AS symbol_out,
+       CAST(split_part(packed, '|', 3) AS FLOAT) AS ds_ag,
+       CAST(split_part(packed, '|', 4) AS FLOAT) AS ds_al,
+       CAST(split_part(packed, '|', 5) AS FLOAT) AS ds_dg,
+       CAST(split_part(packed, '|', 6) AS FLOAT) AS ds_dl,
+       CAST(split_part(packed, '|', 7) AS INT) AS dp_ag,
+       CAST(split_part(packed, '|', 8) AS INT) AS dp_al,
+       CAST(split_part(packed, '|', 9) AS INT) AS dp_dg,
+       CAST(split_part(packed, '|', 10) AS INT) AS dp_dl
+FROM unpacked
 """
 
 [[source]]
-provider = "tsv"
-# Overridden at build time with --source-path (the flattened TSV above).
-path = "spliceai_flat.tsv.gz"
-  [source.csv]
-  delimiter   = "\t"
-  has_header  = false
-  compression = "gzip"
-  schema = [
-    { name = "chrom",  type = "Utf8" },
-    { name = "pos",    type = "Utf8" },
-    { name = "ref",    type = "Utf8" },
-    { name = "alt",    type = "Utf8" },
-    { name = "symbol", type = "Utf8" },
-    { name = "ds_ag",  type = "Utf8" },
-    { name = "ds_al",  type = "Utf8" },
-    { name = "ds_dg",  type = "Utf8" },
-    { name = "ds_dl",  type = "Utf8" },
-    { name = "dp_ag",  type = "Utf8" },
-    { name = "dp_al",  type = "Utf8" },
-    { name = "dp_dg",  type = "Utf8" },
-    { name = "dp_dl",  type = "Utf8" },
-  ]
+provider = "vcf"
+# Overridden at build time with --source-path (the raw
+# spliceai_scores.masked.snv.ensembl_mane.grch38.110.vcf.gz).
+path = "spliceai_scores.masked.snv.ensembl_mane.grch38.110.vcf.gz"
 
 # Per-transcript match discriminator: gene SYMBOL (requires the framework's
 # SYMBOL engine attribute, added on this branch).

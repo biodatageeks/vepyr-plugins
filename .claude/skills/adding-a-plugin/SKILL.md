@@ -20,9 +20,11 @@ plugin — only the manifest.
 
 Reference implementations already in this repo: `plugins/cadd/cadd.source.toml`
 (native TSV, two combined sources, `assume_unique`), `plugins/spliceai/spliceai.source.toml`
-(VCF flattened to TSV, per-transcript `match_column`), `plugins/clinvar`,
-`plugins/alphamissense`, `plugins/dbnsfp`. Read whichever is closest to your new
-source before writing the manifest — copy the shape, don't invent one.
+(native VCF, a packed `Number=.` INFO tag split with `array_element`+`split_part`,
+per-transcript `match_column`), `plugins/clinvar/clinvar.source.toml` (native
+VCF, `array_to_string` on `Number=.` fields, multiallelic `unnest`),
+`plugins/alphamissense`, `plugins/dbnsfp`. Read whichever is closest to your
+new source before writing the manifest — copy the shape, don't invent one.
 
 ## 0. Before touching anything: source triage
 
@@ -66,7 +68,7 @@ Given a URL or file, answer these first — they decide almost everything else:
 | Source | Format | Biggest chrom (compressed) | Feasible? |
 |---|---|---|---|
 | CADD SNV | TSV | chr1 ≈ 14GB flat | yes (with streaming write, ~2-4.5h) |
-| SpliceAI (masked) | VCF→TSV | chr1 ≈ 2.3GB flat | yes (~4.5h worst case, but usually <1h) |
+| SpliceAI (masked) | VCF (native) | chr1 ≈ 2.3GB flat-equivalent | yes (~4.5h worst case, but usually <1h) |
 | gnomAD v4.1 **exomes** | VCF | chr1 ≈ 19GB compressed | borderline — expect *worse* than CADD chr1 (VCF INFO parsing is heavier per row than flat TSV columns) |
 | gnomAD v4.1 **genomes** | VCF | chr1 ≈ 44GB compressed | **no** — will not fit locally even with remote streaming |
 
@@ -108,6 +110,12 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
       on exactly these records — that's a source-parsing difference, not a
       bug in either path. See `clinvar.source.toml` for a full manifest using
       this provider.
+    - A single INFO tag packing several sub-values into one delimited string
+      (e.g. SpliceAI's `ALLELE|SYMBOL|DS_AG|...`) splits the same way:
+      `array_element("TAG", 1)` first if the header declares it `Number=.`
+      (see the `array_to_string` point above — same reason, a single packed
+      string still comes back as a one-element `List<Utf8>`), then
+      `split_part(..., '|', N)` per sub-value. See `spliceai.source.toml`.
     - A sparse plugin (far fewer rows per chromosome than the variation
       shard, e.g. ClinVar) can land on the tier join's hash-build side, whose
       row order a hash join doesn't preserve. `build_plugin_chrom` detects
@@ -115,12 +123,10 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
       rather than failing the build — no manifest-level action needed, this
       is handled automatically.
   - **Flatten fallback** (bcftools/awk pre-pass, `provider = "csv"` on the
-    result): still the right call when the INFO field itself is
-    pipe/comma-packed into sub-values the native provider can't split without
-    a second pass (SpliceAI's masked `SpliceAI` tag needed `awk` to pull 9
-    sub-values out of one INFO tag — see `spliceai.source.toml`'s header
-    comment). For a source whose columns map 1:1 to VCF fields, prefer the
-    native provider above instead.
+    result): for a source where `ingest_sql` genuinely can't express the
+    needed reshaping in SQL — a packed or pipe-delimited field splits fine
+    with `array_element`/`split_part` as above, so reach for this only when
+    that's not enough.
 - **BED** (`chrom, start, end` + optional extra columns): `provider = "bed"` —
   `ProviderKind::Bed` is wired via `datafusion-bio-format-bed`'s
   `BedTableProvider`. Its schema is only ever `chrom, start, end, name`
@@ -128,7 +134,7 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
   columns the reader parses per line, not how many get exposed) — a source
   needing more than one extra field packs it into `name` (e.g. `id|score`)
   and splits it back out in `ingest_sql` with `split_part`, the same trick
-  SpliceAI's flattened INFO tag uses.
+  used for a packed VCF INFO tag (see the VCF section above).
 - **Parquet**: `provider = "parquet"` already works, straightforward.
 
 ## 2. Per-chromosome flatten + sort (only if source isn't a single native file)
