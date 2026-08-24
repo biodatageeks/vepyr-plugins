@@ -7,12 +7,11 @@
 #
 # 6 columns (#Chrom, Pos, Ref, Alt, RawScore, PHRED), 1-based GRCh38, bare
 # (non-`chr`-prefixed) contigs. SNV and indel files share this exact schema —
-# per-chromosome builds combine both (VEP's CADD.pm takes `snv=...,indels=...`
-# as two files queried together). The current Python API overrides only one
-# source path, so it concatenates the two unmodified per-chromosome slices as a
-# transport workaround. The input need not be sorted: DataFusion performs the
-# normalization below and the builder's final `ORDER BY tier, start` owns shard
-# ordering.
+# VEP's CADD.pm takes `snv=...,indels=...` as two files queried together, and
+# so do we: two [[source]] blocks with `part`, registered as
+# plugin_cadd_src_snv / plugin_cadd_src_indel and combined by UNION ALL in
+# ingest_sql below. No on-disk concatenation or external sort is needed;
+# DataFusion's final `ORDER BY tier, start` owns shard ordering.
 #
 # Indel rows carry a shared leading anchor base (VCF convention, e.g.
 # `AG>A`), exactly like ClinVar's raw file — the ingest_sql below replicates
@@ -50,7 +49,11 @@ WITH trimmed AS (
                AND substr(ref, 1, 1) = substr(alt, 1, 1) AS is_shifted,
            raw_score,
            phred
-    FROM plugin_cadd_src
+    FROM (
+        SELECT chrom, pos, ref, alt, raw_score, phred FROM plugin_cadd_src_snv
+        UNION ALL
+        SELECT chrom, pos, ref, alt, raw_score, phred FROM plugin_cadd_src_indel
+    )
 )
 SELECT chrom,
        CASE WHEN is_shifted THEN pos + 1 ELSE pos END AS start,
@@ -69,11 +72,34 @@ SELECT chrom,
 FROM trimmed
 """
 
+# Both paths are placeholders, overridden at build time with
+# source_path={"snv": ..., "indel": ...} (per-chrom tabix slices, or the whole
+# files). Identical schemas, so ingest_sql can UNION ALL them directly.
 [[source]]
 provider = "csv"
-# Overridden at build time with --source-path (a per-chrom tabix-extracted
-# TSV concatenating unmodified SNV + indel rows — see the header comment).
-path = "cadd_chr21_combined.tsv"
+part     = "snv"
+path     = "whole_genome_SNVs.tsv.gz"
+  [source.csv]
+  delimiter   = "\t"
+  has_header  = false
+  # Defense-in-depth, not currently load-bearing: tabix extraction never
+  # emits the source file's own header line, but if a future extraction step
+  # ever leaves it in, this stops it silently becoming a data row (every
+  # column CAST to null) instead of erroring.
+  comment     = "#"
+  schema = [
+    { name = "chrom",     type = "Utf8" },
+    { name = "pos",       type = "Utf8" },
+    { name = "ref",       type = "Utf8" },
+    { name = "alt",       type = "Utf8" },
+    { name = "raw_score", type = "Utf8" },
+    { name = "phred",     type = "Utf8" },
+  ]
+
+[[source]]
+provider = "csv"
+part     = "indel"
+path     = "gnomad.genomes.r4.0.indel.tsv.gz"
   [source.csv]
   delimiter   = "\t"
   has_header  = false
