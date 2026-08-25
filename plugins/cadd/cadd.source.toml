@@ -35,6 +35,7 @@ plugin_name       = "cadd"
 coordinate_system = "1-based"
 csq_rank          = 2
 field_order       = "alphabetical"
+allele_match      = "minimised"
 assume_unique     = true
 ingest_sql = """
 WITH trimmed AS (
@@ -60,8 +61,8 @@ SELECT chrom,
                 THEN CASE WHEN length(substr(alt, 2)) = 0 THEN '-' ELSE substr(alt, 2) END
                 ELSE alt END
        ) AS allele_string,
-       CAST(raw_score AS FLOAT) AS cadd_raw,
-       CAST(phred AS FLOAT) AS cadd_phred
+       raw_score AS cadd_raw,
+       phred AS cadd_phred
 FROM trimmed
 """
 
