@@ -33,6 +33,8 @@
 
 plugin_name       = "cadd"
 coordinate_system = "1-based"
+csq_rank          = 2
+field_order       = "alphabetical"
 assume_unique     = true
 ingest_sql = """
 WITH trimmed AS (
@@ -88,9 +90,11 @@ path = "cadd_chr21_combined.tsv"
 [[value_columns]]
 column = "cadd_raw"
 csq_field = "CADD_RAW"
-type = "Float32"
+type = "Utf8"
+description = "Raw CADD score. CADD is only available here for non-commercial use. See CADD website for more information."
 
 [[value_columns]]
 column = "cadd_phred"
 csq_field = "CADD_PHRED"
-type = "Float32"
+type = "Utf8"
+description = "PHRED-like scaled CADD score. CADD is only available here for non-commercial use. See CADD website for more information."

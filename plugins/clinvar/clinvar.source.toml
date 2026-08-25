@@ -48,6 +48,8 @@
 
 plugin_name       = "clinvar"
 coordinate_system = "1-based"
+csq_rank          = 5
+field_order       = "declared"
 # Runtime probes with the engine's `vcf_to_vep_input_allele()` form, not raw
 # VCF ref/alt (see annotate_provider.rs:5599-5602, allele.rs:340-369): for an
 # indel whose REF/ALT share a leading anchor base, it strips that one base

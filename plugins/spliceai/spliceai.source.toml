@@ -43,6 +43,8 @@
 
 plugin_name       = "spliceai"
 coordinate_system = "1-based"
+csq_rank          = 1
+field_order       = "alphabetical"
 assume_unique     = true
 ingest_sql = """
 WITH unpacked AS (
@@ -87,43 +89,52 @@ template = "{SYMBOL}"
 column = "symbol_out"
 csq_field = "SpliceAI_pred_SYMBOL"
 type = "Utf8"
+description = "SpliceAI (v1.3.1) gene symbol"
 
 [[value_columns]]
 column = "ds_ag"
 csq_field = "SpliceAI_pred_DS_AG"
-type = "Float32"
+type = "Utf8"
+description = "SpliceAI (v1.3.1) delta score (0\u20131) for acceptor gain: max inc. in predicted acceptor probability within \u00b150 bp. Guide cutoffs: <0.01 none; \u22650.2 high-recall; \u22650.5 recommended; \u22650.8 high-precision."
 
 [[value_columns]]
 column = "ds_al"
 csq_field = "SpliceAI_pred_DS_AL"
-type = "Float32"
+type = "Utf8"
+description = "SpliceAI (v1.3.1) delta score (0\u20131) for acceptor loss: max dec. in predicted acceptor probability within \u00b150 bp. Guide cutoffs: <0.01 none; \u22650.2 high-recall; \u22650.5 recommended; \u22650.8 high-precision."
 
 [[value_columns]]
 column = "ds_dg"
 csq_field = "SpliceAI_pred_DS_DG"
-type = "Float32"
+type = "Utf8"
+description = "SpliceAI (v1.3.1) delta score (0\u20131) for donor gain: max inc. in predicted donor probability within \u00b150 bp. Guide cutoffs: <0.01 none; \u22650.2 high-recall; \u22650.5 recommended; \u22650.8 high-precision."
 
 [[value_columns]]
 column = "ds_dl"
 csq_field = "SpliceAI_pred_DS_DL"
-type = "Float32"
+type = "Utf8"
+description = "SpliceAI (v1.3.1) delta score (0\u20131) for donor loss: max dec. in predicted donor probability within \u00b150 bp. Guide cutoffs: <0.01 none; \u22650.2 high-recall; \u22650.5 recommended; \u22650.8 high-precision."
 
 [[value_columns]]
 column = "dp_ag"
 csq_field = "SpliceAI_pred_DP_AG"
 type = "Int32"
+description = "SpliceAI (v1.3.1) delta position (bp) for acceptor gain: position (relative to variant) of max AG change (+ downstream, \u2212 upstream)."
 
 [[value_columns]]
 column = "dp_al"
 csq_field = "SpliceAI_pred_DP_AL"
 type = "Int32"
+description = "SpliceAI (v1.3.1) delta position (bp) for acceptor loss: position (relative to variant) of max AL change (+ downstream, \u2212 upstream)."
 
 [[value_columns]]
 column = "dp_dg"
 csq_field = "SpliceAI_pred_DP_DG"
 type = "Int32"
+description = "SpliceAI (v1.3.1) delta position (bp) for donor gain: position (relative to variant) of max DG change (+ downstream, \u2212 upstream)."
 
 [[value_columns]]
 column = "dp_dl"
 csq_field = "SpliceAI_pred_DP_DL"
 type = "Int32"
+description = "SpliceAI (v1.3.1) delta position (bp) for donor loss: position (relative to variant) of max DL change (+ downstream, \u2212 upstream)."

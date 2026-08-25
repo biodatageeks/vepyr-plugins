@@ -14,6 +14,8 @@
 
 plugin_name       = "alphamissense"
 coordinate_system = "1-based"
+csq_rank          = 3
+field_order       = "alphabetical"
 ingest_sql = """
 SELECT chrom,
        CAST(pos AS INT) AS start,
@@ -61,8 +63,10 @@ template = "{ref_aa}{Protein_position}{alt_aa}"
 column = "am_class"
 csq_field = "am_class"
 type = "Utf8"
+description = "The AlphaMissense thresholds are: 'Likely benign' if score < 0.34, 'Likely pathogenic' if score > 0.564, 'ambiguous' otherwise -- see doi.org/10.1126/science.adg7492 for details; column from /data/vep116_chr21/slices/alphamissense_chr21.tsv.gz"
 
 [[value_columns]]
 column = "am_pathogenicity"
 csq_field = "am_pathogenicity"
 type = "Float32"
+description = "Continuous AlphaMissense score between 0 and 1 which can be interpreted as the predicted probability of the variant being pathogenic; column from /data/vep116_chr21/slices/alphamissense_chr21.tsv.gz"

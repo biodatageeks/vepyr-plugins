@@ -46,6 +46,8 @@
 
 plugin_name       = "dbnsfp"
 coordinate_system = "1-based"
+csq_rank          = 4
+field_order       = "alphabetical"
 ingest_sql = """
 SELECT
     "chr" AS chrom,
@@ -620,93 +622,112 @@ template = "{ref_aa}/{alt_aa}"
 column = "sift4g_score"
 csq_field = "SIFT4G_score"
 type = "Utf8"
+description = "SIFT4G_score from dbNSFP file"
 
 [[value_columns]]
 column = "sift4g_pred"
 csq_field = "SIFT4G_pred"
 type = "Utf8"
+description = "SIFT4G_pred from dbNSFP file"
 
 [[value_columns]]
 column = "polyphen2_hdiv_score"
 csq_field = "Polyphen2_HDIV_score"
 type = "Utf8"
+description = "Polyphen2_HDIV_score from dbNSFP file"
 
 [[value_columns]]
 column = "polyphen2_hvar_score"
 csq_field = "Polyphen2_HVAR_score"
 type = "Utf8"
+description = "Polyphen2_HVAR_score from dbNSFP file"
 
 [[value_columns]]
 column = "mutationtaster_score"
 csq_field = "MutationTaster_score"
 type = "Utf8"
+description = "MutationTaster_score from dbNSFP file"
 
 [[value_columns]]
 column = "mutationtaster_pred"
 csq_field = "MutationTaster_pred"
 type = "Utf8"
+description = "MutationTaster_pred from dbNSFP file"
 
 [[value_columns]]
 column = "provean_score"
 csq_field = "PROVEAN_score"
 type = "Utf8"
+description = "PROVEAN_score from dbNSFP file"
 
 [[value_columns]]
 column = "provean_pred"
 csq_field = "PROVEAN_pred"
 type = "Utf8"
+description = "PROVEAN_pred from dbNSFP file"
 
 [[value_columns]]
 column = "vest4_score"
 csq_field = "VEST4_score"
 type = "Utf8"
+description = "VEST4_score from dbNSFP file"
 
 [[value_columns]]
 column = "metasvm_score"
 csq_field = "MetaSVM_score"
 type = "Utf8"
+description = "MetaSVM_score from dbNSFP file"
 
 [[value_columns]]
 column = "metasvm_pred"
 csq_field = "MetaSVM_pred"
 type = "Utf8"
+description = "MetaSVM_pred from dbNSFP file"
 
 [[value_columns]]
 column = "metalr_score"
 csq_field = "MetaLR_score"
 type = "Utf8"
+description = "MetaLR_score from dbNSFP file"
 
 [[value_columns]]
 column = "metalr_pred"
 csq_field = "MetaLR_pred"
 type = "Utf8"
+description = "MetaLR_pred from dbNSFP file"
 
 [[value_columns]]
 column = "revel_score"
 csq_field = "REVEL_score"
 type = "Utf8"
+description = "REVEL_score from dbNSFP file"
 
 [[value_columns]]
 column = "gerp_rs"
 csq_field = "GERP++_RS"
 type = "Utf8"
+description = "GERP++_RS from dbNSFP file"
 
 [[value_columns]]
 column = "phylop100way_vertebrate"
 csq_field = "phyloP100way_vertebrate"
 type = "Utf8"
+description = "phyloP100way_vertebrate from dbNSFP file"
 
 [[value_columns]]
 column = "phastcons100way_vertebrate"
 csq_field = "phastCons100way_vertebrate"
 type = "Utf8"
+description = "phastCons100way_vertebrate from dbNSFP file"
 
 [[value_columns]]
 column = "cadd_raw"
 csq_field = "CADD_raw"
 type = "Utf8"
+description = "CADD_raw from dbNSFP file"
 
 [[value_columns]]
 column = "cadd_phred"
 csq_field = "CADD_phred"
 type = "Utf8"
+description = "CADD_phred from dbNSFP file"
