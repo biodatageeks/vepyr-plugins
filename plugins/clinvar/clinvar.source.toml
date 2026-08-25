@@ -50,6 +50,10 @@ plugin_name       = "clinvar"
 coordinate_system = "1-based"
 csq_rank          = 5
 field_order       = "declared"
+# VEP's --custom VCF source minimises alleles before comparing (verified on
+# chr1:65364614 GT>TT, which it matches to ClinVar's G>T row 1258041). The
+# "exact" in --custom ...,exact is the overlap mode, not the allele rule.
+allele_match      = "minimised"
 # Runtime probes with the engine's `vcf_to_vep_input_allele()` form, not raw
 # VCF ref/alt (see annotate_provider.rs:5599-5602, allele.rs:340-369): for an
 # indel whose REF/ALT share a leading anchor base, it strips that one base
