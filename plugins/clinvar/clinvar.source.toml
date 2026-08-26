@@ -25,6 +25,12 @@
 # Number=1 (scalar) and must NOT be wrapped -- `array_to_string` on a
 # non-list column is a type error.
 #
+# `record_layout = true` carries the per-record `_vcf_info_keys` list. Typed
+# INFO columns alone cannot distinguish an explicit `CLNDN=.` from an absent
+# CLNDN key because both parse to Arrow null. VEP `--custom` preserves the
+# explicit dot but emits an empty CSQ field for an absent key, so each selected
+# INFO value below restores `.` only when its key was actually present.
+#
 # `UNNEST(string_to_array(alt, '|'))` splits a multiallelic record's `alt`
 # (the VCF provider pipe-joins multiple ALTs into one string, e.g. "A|C" for
 # a raw-VCF "A,C") into one row per allele, so a multiallelic line can never
@@ -70,11 +76,26 @@ WITH exploded AS (
            ref,
            unnest(string_to_array(alt, '|')) AS alt,
            id,
-           array_to_string("CLNSIG", ',') AS clnsig,
-           array_to_string("CLNREVSTAT", ',') AS clnrevstat,
-           array_to_string("CLNDN", ',') AS clndn,
-           "CLNVC" AS clnvc,
-           array_to_string("CLNVI", ',') AS clnvi
+           CASE
+               WHEN "CLNSIG" IS NOT NULL THEN array_to_string("CLNSIG", ',')
+               WHEN strpos(concat(';', "_vcf_info_keys", ';'), ';CLNSIG;') > 0 THEN '.'
+           END AS clnsig,
+           CASE
+               WHEN "CLNREVSTAT" IS NOT NULL THEN array_to_string("CLNREVSTAT", ',')
+               WHEN strpos(concat(';', "_vcf_info_keys", ';'), ';CLNREVSTAT;') > 0 THEN '.'
+           END AS clnrevstat,
+           CASE
+               WHEN "CLNDN" IS NOT NULL THEN array_to_string("CLNDN", ',')
+               WHEN strpos(concat(';', "_vcf_info_keys", ';'), ';CLNDN;') > 0 THEN '.'
+           END AS clndn,
+           CASE
+               WHEN "CLNVC" IS NOT NULL THEN "CLNVC"
+               WHEN strpos(concat(';', "_vcf_info_keys", ';'), ';CLNVC;') > 0 THEN '.'
+           END AS clnvc,
+           CASE
+               WHEN "CLNVI" IS NOT NULL THEN array_to_string("CLNVI", ',')
+               WHEN strpos(concat(';', "_vcf_info_keys", ';'), ';CLNVI;') > 0 THEN '.'
+           END AS clnvi
     FROM plugin_clinvar_src
 ),
 trimmed AS (
@@ -112,6 +133,7 @@ FROM trimmed
 provider = "vcf"
 # Overridden at build time with --source-path (the raw clinvar.vcf.gz).
 path = "clinvar.vcf.gz"
+record_layout = true
 
 # Field order/names match the VEP --custom short_name_field convention
 # (ClinVar_CLNSIG, ...) used in vepyr_diffly's plugins.py for the golden run.
