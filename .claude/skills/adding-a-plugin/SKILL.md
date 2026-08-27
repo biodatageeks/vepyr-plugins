@@ -79,13 +79,13 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
 ## 1. Source format handling
 
 - **Native CSV/TSV** (delimited columns already, e.g. `chrom\tpos\tref\talt\tscore`):
-  use `provider = "csv"` directly in `[[source]]`, pointing at the file (or the
-  per-chrom flattened file — see step 2). No preprocessing needed.
-- **VCF** (INFO-packed, e.g. `AC=...;AN=...;AF=...`): two options —
-  - **Native VCF provider** (`provider = "vcf"`) — `ProviderKind::Vcf` is wired
-    (`datafusion-bio-functions/.../plugin_cache/provider.rs`), self-contained,
-    no bcftools/awk. Point `[[source]]` straight at the raw VCF and use
-    `ingest_sql` to pull the INFO subfields you need:
+  use `provider = "csv"` directly in `[[source]]`, pointing at the raw file or
+  an unmodified per-chromosome slice. No preprocessing needed.
+- **VCF** (INFO-packed, e.g. `AC=...;AN=...;AF=...`): use the native VCF
+  provider (`provider = "vcf"`). `ProviderKind::Vcf` is wired
+  (`datafusion-bio-functions/.../plugin_cache/provider.rs`), self-contained,
+  no bcftools/awk. Point `[[source]]` straight at the raw VCF and use
+  `ingest_sql` to pull the INFO subfields you need:
     - Quote the column, e.g. `"CLNSIG" AS clnsig` — VCF INFO tags are
       case-sensitive column names in the generated schema, and an unquoted
       identifier gets lowercase-folded by the SQL parser and won't resolve.
@@ -96,16 +96,15 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
       NOT be wrapped — `array_to_string` on a non-list column is a type error;
       check the field's `Number=` in the VCF header before deciding.
     - It doesn't split multiallelic records itself — it pipe-joins ALT alleles
-      into one string (e.g. VCF's `A,C` becomes `"A|C"`), the exact same trap
-      the flatten path's `bcftools norm -m -` step guards against;
+      into one string (e.g. VCF's `A,C` becomes `"A|C"`), so split it in SQL:
       `unnest(string_to_array(alt, '|'))` in `ingest_sql`'s `SELECT` list
       (DataFusion supports unnest directly in the projection, not just as a
       table-valued FROM clause) replicates that split.
     - `ALT = "."` (VCF's "no called alternate allele" marker) renders as an
       empty string here, not the literal `.` character — the provider parses
-      VCF semantics, it doesn't echo raw text. `bcftools query`-based sources
-      (the flatten fallback, or any hand-rolled TSV/BED/Parquet built from
-      `%ALT`) keep the literal `.` instead. If cross-checking a manifest
+      VCF semantics, it doesn't echo raw text. A separately generated TSV or
+      another tool that prints raw `%ALT` may keep the literal `.` instead. If
+      cross-checking a manifest
       against a bcftools-derived reference, expect `allele_string` to differ
       on exactly these records — that's a source-parsing difference, not a
       bug in either path. See `clinvar.source.toml` for a full manifest using
@@ -116,17 +115,10 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
       (see the `array_to_string` point above — same reason, a single packed
       string still comes back as a one-element `List<Utf8>`), then
       `split_part(..., '|', N)` per sub-value. See `spliceai.source.toml`.
-    - A sparse plugin (far fewer rows per chromosome than the variation
-      shard, e.g. ClinVar) can land on the tier join's hash-build side, whose
-      row order a hash join doesn't preserve. `build_plugin_chrom` detects
-      this (`assert_start_monotonic`) and retries with an explicit sort
-      rather than failing the build — no manifest-level action needed, this
-      is handled automatically.
-  - **Flatten fallback** (bcftools/awk pre-pass, `provider = "csv"` on the
-    result): for a source where `ingest_sql` genuinely can't express the
-    needed reshaping in SQL — a packed or pipe-delimited field splits fine
-    with `array_element`/`split_part` as above, so reach for this only when
-    that's not enough.
+    - Input and join order are irrelevant to shard correctness. The final
+      DataFusion query always applies `ORDER BY tier, start`; its external
+      sorter can spill within the bounded build pool, and the writer asserts
+      monotonicity before publishing the shard.
 - **BED** (`chrom, start, end` + optional extra columns): `provider = "bed"` —
   `ProviderKind::Bed` is wired via `datafusion-bio-format-bed`'s
   `BedTableProvider`. Its schema is only ever `chrom, start, end, name`
@@ -137,33 +129,29 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
   used for a packed VCF INFO tag (see the VCF section above).
 - **Parquet**: `provider = "parquet"` already works, straightforward.
 
-## 2. Per-chromosome flatten + sort (only if source isn't a single native file)
+## 2. Keep transformation and ordering in DataFusion
 
-If you flattened from VCF, or the source has multiple files that combine per
-chromosome (CADD's SNV + indel are two separate tabix'd files), **you must
-globally position-sort the combined flat file before building**:
+Do not flatten or externally sort a source to satisfy the cache builder.
+Express allele normalization, packed-field expansion, filtering, and source
+combination in `ingest_sql`. The builder's final tier query owns physical
+ordering with an explicit `ORDER BY tier, start`, independent of source order,
+execution partitions, or the selected join algorithm. A storage-boundary
+monotonicity assertion prevents publishing a corrupt shard if that contract is
+ever violated. The engine regression
+`sparse_plugin_with_disordered_source_still_builds_sorted` explicitly builds
+from descending input and verifies the published Parquet shard is ascending.
 
-```bash
-# GNU/Linux (`sort` is GNU coreutils)
-LC_ALL=C sort -t $'\t' -k2,2n -S 1G --parallel=4 raw.tsv > sorted.tsv
+A raw per-chromosome `tabix` slice is still useful to avoid repeatedly scanning
+a whole-genome multi-gigabyte source; that is I/O pruning, not transformation.
+CADD currently concatenates its unmodified SNV and indel chromosome slices
+because `vepyr.build_plugin_cache` accepts only one `source_path`. The
+concatenation does not need to be sorted. Removing that last transport-only
+step requires named multi-source path overrides in the Python API; do not hide
+the limitation behind a hand-written flatten/sort pipeline.
 
-# macOS (`brew install coreutils` provides GNU sort as `gsort`)
-LC_ALL=C gsort -t $'\t' -k2,2n -S 1G --parallel=4 raw.tsv > sorted.tsv
-```
-
-Use GNU sort in both cases. macOS's BSD `sort` does not provide the same
-memory/parallel controls and is substantially slower on multi-GB inputs.
-
-Why: the builder's streaming write (see step 3) assumes the input arrives in
-position-ascending order and skips an explicit in-memory sort for that reason —
-if two source files are each internally sorted but concatenated (SNV block then
-indel block), the *combined* file is NOT globally sorted and the on-disk shard
-will silently violate its `(tier, start)`-sorted contract unless you run GNU
-sort first.
-(Root-caused this session on CADD; validated by diffing old vs. new builds.)
-
-A single native VCF/TSV queried by `bcftools`/`tabix` for one chromosome IS
-already globally position-sorted — no additional sort is needed in that case.
+If a needed reshape cannot be expressed by the existing SQL functions or
+native providers, extend the engine/provider surface rather than creating a
+second preprocessing implementation whose semantics can drift.
 
 ## 3. Build one chromosome
 
@@ -175,7 +163,7 @@ result = vepyr.build_plugin_cache(
                                             # datafusion-bio-functions ref — that's fixed by
                                             # whatever datafusion-bio-function-vep build vepyr
                                             # itself is linked against).
-    source_path='<path to flattened/sorted TSV, or raw file if no flattening needed>',
+    source_path='<raw source, per-chrom slice, or unsorted concatenation>',
     cache_dir='<core Ensembl cache dir, e.g. .../116_GRCh38_merged>',
     plugin_cache_root='<plugin cache output root>',
     chroms=['<chrom>'],                     # one chromosome per call — never pass the whole genome at once
@@ -229,8 +217,8 @@ assert old.sort_by(keys).combine_chunks().equals(new.sort_by(keys).combine_chunk
 ```
 
 If there's no prior-good shard to diff against (first time adding this plugin),
-at minimum: spot-check row counts against `wc -l` on the flattened source, and
-manually probe a handful of known variants against the source file.
+at minimum: reconcile row counts with an independent query of the raw source,
+and manually probe a handful of known variants against that source.
 
 ## 5. Upload
 

@@ -8,9 +8,11 @@
 # 6 columns (#Chrom, Pos, Ref, Alt, RawScore, PHRED), 1-based GRCh38, bare
 # (non-`chr`-prefixed) contigs. SNV and indel files share this exact schema —
 # per-chromosome builds combine both (VEP's CADD.pm takes `snv=...,indels=...`
-# as two files queried together; we flatten them into one per-chrom TSV before
-# ingest since the plugin_cache builder's public API only overrides a single
-# source path per build).
+# as two files queried together). The current Python API overrides only one
+# source path, so it concatenates the two unmodified per-chromosome slices as a
+# transport workaround. The input need not be sorted: DataFusion performs the
+# normalization below and the builder's final `ORDER BY tier, start` owns shard
+# ordering.
 #
 # Indel rows carry a shared leading anchor base (VCF convention, e.g.
 # `AG>A`), exactly like ClinVar's raw file — the ingest_sql below replicates
@@ -70,7 +72,7 @@ FROM trimmed
 [[source]]
 provider = "csv"
 # Overridden at build time with --source-path (a per-chrom tabix-extracted
-# TSV combining SNV + indel rows — see manifest header comment above).
+# TSV concatenating unmodified SNV + indel rows — see the header comment).
 path = "cadd_chr21_combined.tsv"
   [source.csv]
   delimiter   = "\t"
