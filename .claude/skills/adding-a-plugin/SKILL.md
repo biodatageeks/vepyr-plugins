@@ -22,7 +22,8 @@ Reference implementations already in this repo: `plugins/cadd/cadd.source.toml`
 (native TSV, two combined sources, `assume_unique`), `plugins/spliceai/spliceai.source.toml`
 (native VCF, a packed `Number=.` INFO tag split with `array_element`+`split_part`,
 per-transcript `match_column`), `plugins/clinvar/clinvar.source.toml` (native
-VCF, `array_to_string` on `Number=.` fields, multiallelic `unnest`),
+VCF, `array_to_string` on `Number=.` fields, correlated multiallelic
+expansion),
 `plugins/alphamissense`, `plugins/dbnsfp`. Read whichever is closest to your
 new source before writing the manifest — copy the shape, don't invent one.
 
@@ -96,10 +97,42 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
       NOT be wrapped — `array_to_string` on a non-list column is a type error;
       check the field's `Number=` in the VCF header before deciding.
     - It doesn't split multiallelic records itself — it pipe-joins ALT alleles
-      into one string (e.g. VCF's `A,C` becomes `"A|C"`), so split it in SQL:
-      `unnest(string_to_array(alt, '|'))` in `ingest_sql`'s `SELECT` list
-      (DataFusion supports unnest directly in the projection, not just as a
-      table-valued FROM clause) replicates that split.
+      into one string (e.g. VCF's `A,C` becomes `"A|C"`). Split in SQL, but do
+      **not** unnest ALT alone when a selected INFO field is allele-indexed.
+      `Number=A` has one value per ALT; `Number=R` starts with the REF value and
+      then has one value per ALT. Build the ALT list, remove the first element
+      from each `Number=R` list, `arrays_zip` ALT with every allele-indexed INFO
+      list, and unnest the zipped structs so the indexes remain correlated:
+
+      ```sql
+      WITH aligned AS (
+          SELECT ...,
+                 string_to_array(alt, '|') AS alts,
+                 "AF" AS af_values, -- Number=A
+                 array_slice("R_TAG", 2, array_length("R_TAG")) AS r_values
+          FROM plugin_example_src
+      ),
+      exploded AS (
+          SELECT ...,
+                 unnest(arrays_zip(alts, af_values, r_values)) AS allele
+          FROM aligned
+      )
+      SELECT ...,
+             allele['c0'] AS alt,
+             allele['c1'] AS af,
+             allele['c2'] AS r_value
+      FROM exploded
+      ```
+
+      Before building, run a cardinality query and require zero records where
+      `array_length(alts) != array_length(Number=A)` or
+      `array_length(alts) + 1 != array_length(Number=R)`; `arrays_zip` pads a
+      shorter list with null and must not be used to conceal malformed input.
+      A `Number=1` scalar is copied to every exploded allele. `Number=.` is
+      source-defined: inspect its specification instead of assuming its values
+      correspond to ALT indexes. ALT-only `unnest` is safe only when no emitted
+      value is allele-indexed (as in the currently verified ClinVar release,
+      which has zero multiallelic records).
     - `ALT = "."` (VCF's "no called alternate allele" marker) renders as an
       empty string here, not the literal `.` character — the provider parses
       VCF semantics, it doesn't echo raw text. A separately generated TSV or
