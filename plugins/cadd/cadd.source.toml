@@ -79,11 +79,11 @@ FROM trimmed
 provider = "csv"
 part     = "snv"
 path     = "whole_genome_SNVs.tsv.gz"
+index    = "tabix"
   [source.csv]
   delimiter   = "\t"
   has_header  = false
   compression = "gzip"
-  index       = "tabix"
   # Defense-in-depth, not currently load-bearing: tabix extraction never
   # emits the source file's own header line, but if a future extraction step
   # ever leaves it in, this stops it silently becoming a data row (every
@@ -102,11 +102,11 @@ path     = "whole_genome_SNVs.tsv.gz"
 provider = "csv"
 part     = "indel"
 path     = "gnomad.genomes.r4.0.indel.tsv.gz"
+index    = "tabix"
   [source.csv]
   delimiter   = "\t"
   has_header  = false
   compression = "gzip"
-  index       = "tabix"
   # Defense-in-depth, not currently load-bearing: tabix extraction never
   # emits the source file's own header line, but if a future extraction step
   # ever leaves it in, this stops it silently becoming a data row (every

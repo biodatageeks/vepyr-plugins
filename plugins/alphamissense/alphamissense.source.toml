@@ -34,12 +34,12 @@ provider = "tsv"
 # BGZF+tabix build artifact prepared from the upstream gzip distribution. The
 # Rust cache builder queries only the chromosome currently being built.
 path = "AlphaMissense_hg38.bgz.tsv.gz"
+index = "tabix"
   [source.csv]
   delimiter   = "\t"
   has_header  = false
   comment     = "#"
   compression = "gzip"
-  index       = "tabix"
   schema = [
     { name = "chrom",            type = "Utf8" },
     { name = "pos",              type = "Utf8" },

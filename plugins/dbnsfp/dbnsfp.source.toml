@@ -87,11 +87,11 @@ provider = "csv"
 # the current chromosome and materializes that region to a scoped plain file
 # for DataFusion's parallel CSV scan.
 path = "dbNSFP5.3.1a_grch38.gz"
+index = "tabix"
   [source.csv]
   delimiter   = "\t"
   has_header  = false
   compression = "gzip"
-  index       = "tabix"
   # Defense-in-depth, not currently load-bearing: per-chrom tabix extraction
   # never emits the source file's own `#chr ...` header line, but if a future
   # extraction step ever leaves it in, this stops it silently becoming a data

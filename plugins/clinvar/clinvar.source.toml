@@ -136,6 +136,7 @@ FROM trimmed
 provider = "vcf"
 # Overridden at build time with --source-path (the raw clinvar.vcf.gz).
 path = "clinvar.vcf.gz"
+index = "tabix"
 record_layout = true
 
 # Field order/names match the VEP --custom short_name_field convention

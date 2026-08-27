@@ -114,6 +114,13 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
             if provider not in PROVIDERS:
                 errors.append(f"{path}: {label}.provider must be one of {sorted(PROVIDERS)}")
             require_string(source.get("path"), path, f"{label}.path", errors)
+            source_index = source.get("index")
+            if source_index not in {None, "tabix"}:
+                errors.append(f"{path}: {label}.index must be 'tabix'")
+            if source_index == "tabix" and provider not in {"csv", "tsv", "vcf"}:
+                errors.append(
+                    f"{path}: {label}.index='tabix' is supported only for csv/tsv/vcf"
+                )
             part = source.get("part", "")
             if not isinstance(part, str):
                 errors.append(f"{path}: {label}.part must be a string")
@@ -127,20 +134,16 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
             csv = source.get("csv")
             if provider in {"csv", "tsv"} and not isinstance(csv, dict):
                 errors.append(f"{path}: {label}.csv must be a table for {provider}")
-            elif isinstance(csv, dict):
-                text_index = csv.get("index")
-                if text_index not in {None, "tabix"}:
-                    errors.append(f"{path}: {label}.csv.index must be 'tabix'")
-                if text_index == "tabix":
-                    if provider not in {"csv", "tsv"}:
-                        errors.append(
-                            f"{path}: {label}.csv.index is supported only for csv/tsv"
-                        )
-                    if csv.get("compression") != "gzip":
-                        errors.append(
-                            f"{path}: {label}.csv.index='tabix' requires "
-                            "compression='gzip' (BGZF)"
-                        )
+            if (
+                source_index == "tabix"
+                and provider in {"csv", "tsv"}
+                and isinstance(csv, dict)
+                and csv.get("compression") != "gzip"
+            ):
+                errors.append(
+                    f"{path}: {label}.index='tabix' requires "
+                    "source.csv.compression='gzip' (BGZF) for csv/tsv"
+                )
         for part in sorted(duplicate_values(table_parts)):
             errors.append(f"{path}: duplicate source part {part!r} creates a table collision")
 
