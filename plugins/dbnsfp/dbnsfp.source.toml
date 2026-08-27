@@ -83,14 +83,14 @@ FROM plugin_dbnsfp_src
 
 [[source]]
 provider = "csv"
-# Overridden at build time with --source-path (a tabix-extracted per-chrom
-# subset of the full BGZF file — the full file is 46.8GB compressed with a
-# huge per-column-count schema; per-chrom tabix extraction, plain/uncompressed,
-# avoids the plugin-cache full-file decompress-to-temp bottleneck entirely).
-path = "dbnsfp_chr21.tsv"
+# Canonical dbNSFP distribution. Cache builders may override this at build time
+# with a gzip/BGZF-compressed per-chromosome tabix slice so only that slice is
+# materialized to a temporary plain file for DataFusion's parallel CSV scan.
+path = "dbNSFP5.3.1a_grch38.gz"
   [source.csv]
-  delimiter  = "\t"
-  has_header = false
+  delimiter   = "\t"
+  has_header  = false
+  compression = "gzip"
   # Defense-in-depth, not currently load-bearing: per-chrom tabix extraction
   # never emits the source file's own `#chr ...` header line, but if a future
   # extraction step ever leaves it in, this stops it silently becoming a data
