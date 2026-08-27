@@ -166,21 +166,76 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
 
 Do not flatten or externally sort a source to satisfy the cache builder.
 Express allele normalization, packed-field expansion, filtering, and source
-combination in `ingest_sql`. The builder's final tier query owns physical
-ordering with an explicit `ORDER BY tier, start`, independent of source order,
-execution partitions, or the selected join algorithm. A storage-boundary
-monotonicity assertion prevents publishing a corrupt shard if that contract is
-ever violated. The engine regression
+combination in `ingest_sql`. If a source requires shell reshaping to build, that
+is an engine/provider gap to fix, not part of the manifest contract.
+
+### Combine several source files in SQL
+
+`[[source]]` is a list. Give every file a unique `part`; the builder registers
+it as `plugin_<name>_src_<part>`, and `ingest_sql` can combine the tables:
+
+```toml
+[[source]]
+provider = "csv"
+part     = "snv"
+path     = "whole_genome_SNVs.tsv.gz"
+  [source.csv]
+  # ...
+
+[[source]]
+provider = "csv"
+part     = "indel"
+path     = "gnomad.genomes.r4.0.indel.tsv.gz"
+  [source.csv]
+  # ...
+```
+
+```sql
+WITH combined AS (
+    SELECT * FROM plugin_example_src_snv
+    UNION ALL
+    SELECT * FROM plugin_example_src_indel
+)
+SELECT ... FROM combined
+```
+
+Pass one real path per part when building (this requires the vepyr multi-source
+API introduced with `source_path: str | dict[str, str]`):
+
+```python
+vepyr.build_plugin_cache(
+    "example", "<ref>",
+    source_path={"snv": ".../whole_genome_SNVs.tsv.gz",
+                 "indel": ".../gnomad.genomes.r4.0.indel.tsv.gz"},
+    ...
+)
+```
+
+A single-source manifest still takes a plain string. A mapping must cover every
+declared part and contain no unknown parts; otherwise a placeholder path could
+be read accidentally, so vepyr rejects it. There is no combined temporary file
+and no external sort.
+
+### Row order is the engine's responsibility
+
+The builder's final tier query owns physical ordering with an explicit
+`ORDER BY tier, start`, independent of source order, execution partitions, or
+the selected join algorithm. Its DataFusion sorter can spill within the bounded
+build pool. A storage-boundary monotonicity assertion prevents publishing a
+corrupt shard if that contract is ever violated. The engine regression
 `sparse_plugin_with_disordered_source_still_builds_sorted` explicitly builds
 from descending input and verifies the published Parquet shard is ascending.
 
+An external position sort would not be sufficient anyway: the required `start`
+is computed *after* `ingest_sql`. For example, CADD-style anchor trimming can
+shift an indel from raw `pos = 100` to `start = 101` while SNVs at raw position
+100 remain at `start = 100`. Only the DataFusion query knows the transformed
+sort key.
+
 A raw per-chromosome `tabix` slice is still useful to avoid repeatedly scanning
 a whole-genome multi-gigabyte source; that is I/O pruning, not transformation.
-CADD currently concatenates its unmodified SNV and indel chromosome slices
-because `vepyr.build_plugin_cache` accepts only one `source_path`. The
-concatenation does not need to be sorted. Removing that last transport-only
-step requires named multi-source path overrides in the Python API; do not hide
-the limitation behind a hand-written flatten/sort pipeline.
+For a multi-source manifest, slice each part independently and pass the paths in
+the mapping above. Do not concatenate or sort the slices.
 
 If a needed reshape cannot be expressed by the existing SQL functions or
 native providers, extend the engine/provider surface rather than creating a
@@ -196,7 +251,8 @@ result = vepyr.build_plugin_cache(
                                             # datafusion-bio-functions ref — that's fixed by
                                             # whatever datafusion-bio-function-vep build vepyr
                                             # itself is linked against).
-    source_path='<raw source, per-chrom slice, or unsorted concatenation>',
+    # plain path for one [[source]]; {part: path} for several [[source]] entries
+    source_path='<raw source or unmodified per-chrom slice>',
     cache_dir='<core Ensembl cache dir, e.g. .../116_GRCh38_merged>',
     plugin_cache_root='<plugin cache output root>',
     chroms=['<chrom>'],                     # one chromosome per call — never pass the whole genome at once
