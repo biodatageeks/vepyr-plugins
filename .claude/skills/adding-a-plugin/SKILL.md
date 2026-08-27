@@ -144,10 +144,14 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
       this provider.
     - A single INFO tag packing several sub-values into one delimited string
       (e.g. SpliceAI's `ALLELE|SYMBOL|DS_AG|...`) splits the same way:
-      `array_element("TAG", 1)` first if the header declares it `Number=.`
-      (see the `array_to_string` point above — same reason, a single packed
-      string still comes back as a one-element `List<Utf8>`), then
-      `split_part(..., '|', N)` per sub-value. See `spliceai.source.toml`.
+      apply `split_part(..., '|', N)` to each packed entry. A `Number=.` header
+      only says the list has variable length; it does **not** promise one entry.
+      Use `array_element("TAG", 1)` only after a cardinality query proves
+      `array_length("TAG") <= 1` for every record (as verified for the current
+      SpliceAI source). If any record has several entries, preserve them with
+      `unnest("TAG")`, or zip them with ALT when the source specification says
+      the entries are allele-indexed, before splitting the packed fields. Never
+      silently discard elements 2..N. See `spliceai.source.toml`.
     - Input and join order are irrelevant to shard correctness. The final
       DataFusion query always applies `ORDER BY tier, start`; its external
       sorter can spill within the bounded build pool, and the writer asserts
