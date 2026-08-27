@@ -127,11 +127,11 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
         for part in sorted(duplicate_values(table_parts)):
             errors.append(f"{path}: duplicate source part {part!r} creates a table collision")
 
+    value_column_names: list[str] = []
     value_columns = manifest.get("value_columns")
     if not isinstance(value_columns, list) or not value_columns:
         errors.append(f"{path}: value_columns must be a non-empty array")
     else:
-        columns: list[str] = []
         csq_fields: list[str] = []
         for index, value in enumerate(value_columns):
             label = f"value_columns[{index}]"
@@ -143,7 +143,7 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
                 value.get("csq_field"), path, f"{label}.csq_field", errors
             )
             if column is not None:
-                columns.append(column)
+                value_column_names.append(column)
             if csq_field is not None:
                 csq_fields.append(csq_field)
                 if not CSQ_FIELD.fullmatch(csq_field):
@@ -152,16 +152,16 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
                     errors.append(f"{path}: reserved VCF key used as CSQ field {csq_field!r}")
             if value.get("type") not in VALUE_TYPES:
                 errors.append(f"{path}: {label}.type must be one of {sorted(VALUE_TYPES)}")
-        for column in sorted(duplicate_values(columns)):
+        for column in sorted(duplicate_values(value_column_names)):
             errors.append(f"{path}: duplicate value column {column!r}")
         for field in sorted(duplicate_values(csq_fields)):
             errors.append(f"{path}: duplicate CSQ field {field!r}")
 
+    match_column_names: list[str] = []
     match_columns = manifest.get("match_column", [])
     if not isinstance(match_columns, list):
         errors.append(f"{path}: match_column must be an array of tables")
     else:
-        columns: list[str] = []
         for index, match in enumerate(match_columns):
             label = f"match_column[{index}]"
             if not isinstance(match, dict):
@@ -170,9 +170,12 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
             column = require_string(match.get("column"), path, f"{label}.column", errors)
             require_string(match.get("template"), path, f"{label}.template", errors)
             if column is not None:
-                columns.append(column)
-        for column in sorted(duplicate_values(columns)):
+                match_column_names.append(column)
+        for column in sorted(duplicate_values(match_column_names)):
             errors.append(f"{path}: duplicate match column {column!r}")
+
+    for column in sorted(set(value_column_names) & set(match_column_names)):
+        errors.append(f"{path}: column {column!r} cannot be both a value and match column")
 
 
 def main() -> int:
