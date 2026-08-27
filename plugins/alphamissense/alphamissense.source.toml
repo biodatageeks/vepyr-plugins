@@ -31,14 +31,15 @@ FROM plugin_alphamissense_src
 
 [[source]]
 provider = "tsv"
-# The build driver overrides this with --source-path (a chr-scoped slice for the
-# prototype, or the full AlphaMissense_hg38.tsv.gz for a production build).
-path = "AlphaMissense_hg38.tsv.gz"
+# BGZF+tabix build artifact prepared from the upstream gzip distribution. The
+# Rust cache builder queries only the chromosome currently being built.
+path = "AlphaMissense_hg38.bgz.tsv.gz"
   [source.csv]
   delimiter   = "\t"
   has_header  = false
   comment     = "#"
   compression = "gzip"
+  index       = "tabix"
   schema = [
     { name = "chrom",            type = "Utf8" },
     { name = "pos",              type = "Utf8" },

@@ -124,6 +124,23 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
                 errors.append(f"{path}: {label}.record_layout must be a boolean")
             elif record_layout and provider != "vcf":
                 errors.append(f"{path}: {label}.record_layout is supported only for VCF")
+            csv = source.get("csv")
+            if provider in {"csv", "tsv"} and not isinstance(csv, dict):
+                errors.append(f"{path}: {label}.csv must be a table for {provider}")
+            elif isinstance(csv, dict):
+                text_index = csv.get("index")
+                if text_index not in {None, "tabix"}:
+                    errors.append(f"{path}: {label}.csv.index must be 'tabix'")
+                if text_index == "tabix":
+                    if provider not in {"csv", "tsv"}:
+                        errors.append(
+                            f"{path}: {label}.csv.index is supported only for csv/tsv"
+                        )
+                    if csv.get("compression") != "gzip":
+                        errors.append(
+                            f"{path}: {label}.csv.index='tabix' requires "
+                            "compression='gzip' (BGZF)"
+                        )
         for part in sorted(duplicate_values(table_parts)):
             errors.append(f"{path}: duplicate source part {part!r} creates a table collision")
 
