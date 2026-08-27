@@ -318,16 +318,21 @@ and manually probe a handful of known variants against that source.
 ```bash
 rclone copy <plugin_cache_root>/plugin/<name>/chr<N>.parquet gdrive:plugin_cache/plugin/<name> --drive-root-folder-id <id> --low-level-retries 50
 rclone copy <plugin_cache_root>/plugin/<name>/manifest.json  gdrive:plugin_cache/plugin/<name> --drive-root-folder-id <id> --low-level-retries 50
+rclone check <plugin_cache_root>/plugin/<name> gdrive:plugin_cache/plugin/<name> \
+  --drive-root-folder-id <id> --one-way --download \
+  --include 'chr<N>.parquet' --include 'manifest.json'
 ```
 
 **`rclone copy` can silently "complete" without uploading on this network** (seen
 repeatedly this session — process exits, no error, but the file isn't on Drive).
-Always verify with `rclone lsf gdrive:... | grep '^chr<N>\.parquet$'` after every
-upload before deleting the local copy or moving to the next chromosome.
+The filename alone proves nothing when an older remote object already exists.
+Require the filtered `rclone check --download` above to exit zero with no
+differences or errors; it compares the fresh local bytes for both the chromosome
+shard and `manifest.json` with their remote objects.
 
-Once a chromosome is confirmed uploaded, its local copy is safe to delete to
-free disk for the next one — this machine's disk is the tighter constraint
-than Drive storage.
+Only after that content check passes is the chromosome's local copy safe to
+delete to free disk for the next one — this machine's disk is the tighter
+constraint than Drive storage.
 
 ## Common failure signatures (don't misdiagnose these)
 
