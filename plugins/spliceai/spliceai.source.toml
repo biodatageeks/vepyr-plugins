@@ -1,0 +1,140 @@
+# SpliceAI source manifest.
+#
+# Source: https://ftp.ensembl.org/pub/data_files/homo_sapiens/GRCh38/variation_plugins/spliceai_scores.masked.snv.ensembl_mane.grch38.110.vcf.gz
+# VEP plugin: https://github.com/Ensembl/VEP_plugins/blob/release/116/SpliceAI.pm
+#
+# hg38, 1-based, bare (non-`chr`-prefixed) contigs. Single INFO tag `SpliceAI`
+# packs one pipe-delimited prediction per variant:
+#   ALLELE|SYMBOL|DS_AG|DS_AL|DS_DG|DS_DL|DP_AG|DP_AL|DP_DG|DP_DL
+# (ALLELE duplicates VCF ALT and is dropped.) The masked release DOES repeat a
+# bare (chrom, pos, ref, alt) key at overlapping-gene loci -- one row per
+# gene, same variant (confirmed empirically: 101,919 duplicate (pos,ref,alt)
+# keys over a 9.1M-row chr21:33-40Mb slice, e.g. `21:34073579 C>A` for both
+# SLC5A3 and MRPS6). Uniqueness holds only once `symbol` is added to the key
+# -- see `assume_unique` below.
+#
+# `ProviderKind::Vcf` is used directly here -- no bcftools/awk preprocessing.
+# The header declares `SpliceAI` as `Number=.`, so the provider exposes it as
+# `List<Utf8>` (see clinvar.source.toml's array_to_string note); each row
+# carries exactly one packed prediction (overlapping genes are separate rows,
+# not multiple array elements -- see above), so `array_element(..., 1)` pulls
+# it out as a plain string before `split_part` on `|` breaks it into its 9
+# components. `array_element` rather than `array_to_string` because we want
+# exactly the one element, not a comma-join that would silently paper over
+# an unexpected 2+-element row instead of erroring on the CAST that follows.
+#
+# VEP gates SpliceAI by matching the current transcript consequence's gene
+# SYMBOL against the row's own SYMBOL (`_join_transcript` in SpliceAI.pm) —
+# modeled here as a per-transcript match_column, same mechanism as
+# AlphaMissense's protein_variant discriminator but keyed on gene symbol
+# instead of amino-acid change. VEP's own SpliceAI plugin also emits SYMBOL
+# alongside the 8 scores, so the ingest view carries it twice under distinct
+# names (`symbol` for the match key, `symbol_out` for the value column) — the
+# builder's projection rejects two output columns sharing one source name.
+#
+# assume_unique: the runtime probe key is (start, allele_string, symbol), not
+# (start, allele_string) alone -- the bare (chrom, pos, ref, alt) key DOES
+# repeat at overlapping-gene loci (see above), but never with the same
+# symbol twice, so the full key never repeats. Skipping the build-time
+# keep-first dedup pass is safe on that basis; it's also, on the largest
+# chromosomes, the dominant memory cost (its HashSet<String> is one
+# heap-allocated key per row) -- skipping it was required to build chr1-3
+# without OOM on a 16GB machine.
+
+plugin_name       = "spliceai"
+coordinate_system = "1-based"
+csq_rank          = 1
+field_order       = "alphabetical"
+assume_unique     = true
+ingest_sql = """
+WITH unpacked AS (
+    SELECT chrom,
+           CAST(start AS INT) AS pos,
+           ref,
+           alt,
+           array_element("SpliceAI", 1) AS packed
+    FROM plugin_spliceai_src
+)
+SELECT chrom,
+       pos AS start,
+       pos AS end,
+       concat(ref, '/', alt) AS allele_string,
+       split_part(packed, '|', 2) AS symbol,
+       split_part(packed, '|', 2) AS symbol_out,
+       split_part(packed, '|', 3) AS ds_ag,
+       split_part(packed, '|', 4) AS ds_al,
+       split_part(packed, '|', 5) AS ds_dg,
+       split_part(packed, '|', 6) AS ds_dl,
+       CAST(split_part(packed, '|', 7) AS INT) AS dp_ag,
+       CAST(split_part(packed, '|', 8) AS INT) AS dp_al,
+       CAST(split_part(packed, '|', 9) AS INT) AS dp_dg,
+       CAST(split_part(packed, '|', 10) AS INT) AS dp_dl
+FROM unpacked
+"""
+
+[[source]]
+provider = "vcf"
+# Overridden at build time with --source-path (the raw
+# spliceai_scores.masked.snv.ensembl_mane.grch38.110.vcf.gz).
+path = "spliceai_scores.masked.snv.ensembl_mane.grch38.110.vcf.gz"
+
+# Per-transcript match discriminator: gene SYMBOL (requires the framework's
+# SYMBOL engine attribute, added on this branch).
+[[match_column]]
+column   = "symbol"
+template = "{SYMBOL}"
+
+# Field order matches Ensembl VEP SpliceAI plugin default output.
+[[value_columns]]
+column = "symbol_out"
+csq_field = "SpliceAI_pred_SYMBOL"
+type = "Utf8"
+description = "SpliceAI (v1.3.1) gene symbol"
+
+[[value_columns]]
+column = "ds_ag"
+csq_field = "SpliceAI_pred_DS_AG"
+type = "Utf8"
+description = "SpliceAI (v1.3.1) delta score (0\u20131) for acceptor gain: max inc. in predicted acceptor probability within \u00b150 bp. Guide cutoffs: <0.01 none; \u22650.2 high-recall; \u22650.5 recommended; \u22650.8 high-precision."
+
+[[value_columns]]
+column = "ds_al"
+csq_field = "SpliceAI_pred_DS_AL"
+type = "Utf8"
+description = "SpliceAI (v1.3.1) delta score (0\u20131) for acceptor loss: max dec. in predicted acceptor probability within \u00b150 bp. Guide cutoffs: <0.01 none; \u22650.2 high-recall; \u22650.5 recommended; \u22650.8 high-precision."
+
+[[value_columns]]
+column = "ds_dg"
+csq_field = "SpliceAI_pred_DS_DG"
+type = "Utf8"
+description = "SpliceAI (v1.3.1) delta score (0\u20131) for donor gain: max inc. in predicted donor probability within \u00b150 bp. Guide cutoffs: <0.01 none; \u22650.2 high-recall; \u22650.5 recommended; \u22650.8 high-precision."
+
+[[value_columns]]
+column = "ds_dl"
+csq_field = "SpliceAI_pred_DS_DL"
+type = "Utf8"
+description = "SpliceAI (v1.3.1) delta score (0\u20131) for donor loss: max dec. in predicted donor probability within \u00b150 bp. Guide cutoffs: <0.01 none; \u22650.2 high-recall; \u22650.5 recommended; \u22650.8 high-precision."
+
+[[value_columns]]
+column = "dp_ag"
+csq_field = "SpliceAI_pred_DP_AG"
+type = "Int32"
+description = "SpliceAI (v1.3.1) delta position (bp) for acceptor gain: position (relative to variant) of max AG change (+ downstream, \u2212 upstream)."
+
+[[value_columns]]
+column = "dp_al"
+csq_field = "SpliceAI_pred_DP_AL"
+type = "Int32"
+description = "SpliceAI (v1.3.1) delta position (bp) for acceptor loss: position (relative to variant) of max AL change (+ downstream, \u2212 upstream)."
+
+[[value_columns]]
+column = "dp_dg"
+csq_field = "SpliceAI_pred_DP_DG"
+type = "Int32"
+description = "SpliceAI (v1.3.1) delta position (bp) for donor gain: position (relative to variant) of max DG change (+ downstream, \u2212 upstream)."
+
+[[value_columns]]
+column = "dp_dl"
+csq_field = "SpliceAI_pred_DP_DL"
+type = "Int32"
+description = "SpliceAI (v1.3.1) delta position (bp) for donor loss: position (relative to variant) of max DL change (+ downstream, \u2212 upstream)."

@@ -1,0 +1,133 @@
+# CADD source manifest.
+#
+# Source: whole_genome_SNVs.tsv.gz + gnomad.genomes.r4.0.indel.tsv.gz (CADD
+# v1.7, GRCh38), tabix-indexed, download from
+# https://krishna.gs.washington.edu/download/CADD/v1.7/GRCh38/.
+# VEP plugin: https://github.com/Ensembl/VEP_plugins/blob/release/116/CADD.pm
+#
+# 6 columns (#Chrom, Pos, Ref, Alt, RawScore, PHRED), 1-based GRCh38, bare
+# (non-`chr`-prefixed) contigs. SNV and indel files share this exact schema —
+# VEP's CADD.pm takes `snv=...,indels=...` as two files queried together, and
+# so do we: two [[source]] blocks with `part`, registered as
+# plugin_cadd_src_snv / plugin_cadd_src_indel and combined by UNION ALL in
+# ingest_sql below. No on-disk concatenation or external sort is needed;
+# DataFusion's final `ORDER BY tier, start` owns shard ordering.
+#
+# Indel rows carry a shared leading anchor base (VCF convention, e.g.
+# `AG>A`), exactly like ClinVar's raw file — the ingest_sql below replicates
+# the same anchor-trim + `start+1` shift used by `vcf_to_vep_input_allele`
+# (datafusion-bio-function-vep/src/allele.rs) so indel rows land on the same
+# normalized (start, allele_string) key the annotation engine looks up at
+# runtime. SNV rows (ref/alt both length 1) pass through unshifted.
+#
+# Per-variant plugin (CADD.pm matches on position + allele only, no
+# transcript/amino-acid discriminator) — no [[match_column]].
+#
+# assume_unique: SNV rows carry single-base ref/alt (allele_string like
+# "A/G"); indel rows are anchor-shifted (allele_string like "G/-" or with a
+# multi-char side) — the two shapes cannot collide with each other, and
+# within either file every (chrom, pos, ref, alt) is itself unique (SNV: one
+# row per possible substitution; indel: gnomAD calls, no duplicate records).
+# So (start, allele_string) can never repeat and the build-time keep-first
+# dedup pass is unnecessary — skipping it removes its HashSet<String> (one
+# heap-allocated key per row), the dominant memory cost on large chromosomes.
+
+plugin_name       = "cadd"
+coordinate_system = "1-based"
+csq_rank          = 2
+field_order       = "alphabetical"
+# CADD.pm calls get_matched_variant_alleles() before comparing rows.
+allele_match      = "minimised"
+assume_unique     = true
+ingest_sql = """
+WITH trimmed AS (
+    SELECT chrom,
+           CAST(pos AS INT) AS pos,
+           ref,
+           alt,
+           (length(ref) <> 1 OR length(alt) <> 1)
+               AND substr(ref, 1, 1) = substr(alt, 1, 1) AS is_shifted,
+           raw_score,
+           phred
+    FROM (
+        SELECT chrom, pos, ref, alt, raw_score, phred FROM plugin_cadd_src_snv
+        UNION ALL
+        SELECT chrom, pos, ref, alt, raw_score, phred FROM plugin_cadd_src_indel
+    )
+)
+SELECT chrom,
+       CASE WHEN is_shifted THEN pos + 1 ELSE pos END AS start,
+       CASE WHEN is_shifted THEN pos + 1 ELSE pos END AS end,
+       concat(
+           CASE WHEN is_shifted
+                THEN CASE WHEN length(substr(ref, 2)) = 0 THEN '-' ELSE substr(ref, 2) END
+                ELSE ref END,
+           '/',
+           CASE WHEN is_shifted
+                THEN CASE WHEN length(substr(alt, 2)) = 0 THEN '-' ELSE substr(alt, 2) END
+                ELSE alt END
+       ) AS allele_string,
+       raw_score AS cadd_raw,
+       phred AS cadd_phred
+FROM trimmed
+"""
+
+# Both paths are placeholders, overridden at build time with
+# source_path={"snv": ..., "indel": ...} (per-chrom tabix slices, or the whole
+# files). Inputs must remain gzip/bgzip-compressed to match `compression` below.
+# Identical schemas let ingest_sql UNION ALL them directly.
+[[source]]
+provider = "csv"
+part     = "snv"
+path     = "whole_genome_SNVs.tsv.gz"
+  [source.csv]
+  delimiter   = "\t"
+  has_header  = false
+  compression = "gzip"
+  # Defense-in-depth, not currently load-bearing: tabix extraction never
+  # emits the source file's own header line, but if a future extraction step
+  # ever leaves it in, this stops it silently becoming a data row (every
+  # column CAST to null) instead of erroring.
+  comment     = "#"
+  schema = [
+    { name = "chrom",     type = "Utf8" },
+    { name = "pos",       type = "Utf8" },
+    { name = "ref",       type = "Utf8" },
+    { name = "alt",       type = "Utf8" },
+    { name = "raw_score", type = "Utf8" },
+    { name = "phred",     type = "Utf8" },
+  ]
+
+[[source]]
+provider = "csv"
+part     = "indel"
+path     = "gnomad.genomes.r4.0.indel.tsv.gz"
+  [source.csv]
+  delimiter   = "\t"
+  has_header  = false
+  compression = "gzip"
+  # Defense-in-depth, not currently load-bearing: tabix extraction never
+  # emits the source file's own header line, but if a future extraction step
+  # ever leaves it in, this stops it silently becoming a data row (every
+  # column CAST to null) instead of erroring.
+  comment     = "#"
+  schema = [
+    { name = "chrom",     type = "Utf8" },
+    { name = "pos",       type = "Utf8" },
+    { name = "ref",       type = "Utf8" },
+    { name = "alt",       type = "Utf8" },
+    { name = "raw_score", type = "Utf8" },
+    { name = "phred",     type = "Utf8" },
+  ]
+
+[[value_columns]]
+column = "cadd_raw"
+csq_field = "CADD_RAW"
+type = "Utf8"
+description = "Raw CADD score. CADD is only available here for non-commercial use. See CADD website for more information."
+
+[[value_columns]]
+column = "cadd_phred"
+csq_field = "CADD_PHRED"
+type = "Utf8"
+description = "PHRED-like scaled CADD score. CADD is only available here for non-commercial use. See CADD website for more information."
