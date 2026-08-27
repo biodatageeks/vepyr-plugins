@@ -93,7 +93,9 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
     if field_order not in FIELD_ORDERS:
         errors.append(f"{path}: field_order must be one of {sorted(FIELD_ORDERS)}")
     csq_rank = manifest.get("csq_rank")
-    if csq_rank is not None and (not isinstance(csq_rank, int) or csq_rank < 0):
+    if csq_rank is not None and (
+        isinstance(csq_rank, bool) or not isinstance(csq_rank, int) or csq_rank < 0
+    ):
         errors.append(f"{path}: csq_rank must be a non-negative integer")
     if not isinstance(manifest.get("assume_unique", False), bool):
         errors.append(f"{path}: assume_unique must be a boolean")
