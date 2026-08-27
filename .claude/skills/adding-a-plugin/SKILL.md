@@ -144,18 +144,26 @@ chromosome (CADD's SNV + indel are two separate tabix'd files), **you must
 globally position-sort the combined flat file before building**:
 
 ```bash
-gsort -t $'\t' -k2,2n -S 1G --parallel=4 raw.tsv > sorted.tsv   # NOT coreutils `sort` — 10x+ slower on multi-GB files
+# GNU/Linux (`sort` is GNU coreutils)
+LC_ALL=C sort -t $'\t' -k2,2n -S 1G --parallel=4 raw.tsv > sorted.tsv
+
+# macOS (`brew install coreutils` provides GNU sort as `gsort`)
+LC_ALL=C gsort -t $'\t' -k2,2n -S 1G --parallel=4 raw.tsv > sorted.tsv
 ```
+
+Use GNU sort in both cases. macOS's BSD `sort` does not provide the same
+memory/parallel controls and is substantially slower on multi-GB inputs.
 
 Why: the builder's streaming write (see step 3) assumes the input arrives in
 position-ascending order and skips an explicit in-memory sort for that reason —
 if two source files are each internally sorted but concatenated (SNV block then
 indel block), the *combined* file is NOT globally sorted and the on-disk shard
-will silently violate its `(tier, start)`-sorted contract unless you `gsort` first.
+will silently violate its `(tier, start)`-sorted contract unless you run GNU
+sort first.
 (Root-caused this session on CADD; validated by diffing old vs. new builds.)
 
 A single native VCF/TSV queried by `bcftools`/`tabix` for one chromosome IS
-already globally position-sorted — no `gsort` needed in that case.
+already globally position-sorted — no additional sort is needed in that case.
 
 ## 3. Build one chromosome
 
