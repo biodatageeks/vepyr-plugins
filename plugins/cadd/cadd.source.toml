@@ -72,14 +72,14 @@ SELECT chrom,
 FROM trimmed
 """
 
-# Both paths are placeholders, overridden at build time with
-# source_path={"snv": ..., "indel": ...} (per-chrom tabix slices, or the whole
-# files). Inputs must remain gzip/bgzip-compressed to match `compression` below.
-# Identical schemas let ingest_sql UNION ALL them directly.
+# Canonical BGZF+tabix sources. The Rust cache builder queries the current
+# chromosome from each part before DataFusion parses them; identical schemas
+# let ingest_sql UNION ALL the two chromosome-scoped tables directly.
 [[source]]
 provider = "csv"
 part     = "snv"
 path     = "whole_genome_SNVs.tsv.gz"
+index    = "tabix"
   [source.csv]
   delimiter   = "\t"
   has_header  = false
@@ -102,6 +102,7 @@ path     = "whole_genome_SNVs.tsv.gz"
 provider = "csv"
 part     = "indel"
 path     = "gnomad.genomes.r4.0.indel.tsv.gz"
+index    = "tabix"
   [source.csv]
   delimiter   = "\t"
   has_header  = false

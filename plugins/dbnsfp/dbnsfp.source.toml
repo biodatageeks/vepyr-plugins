@@ -83,10 +83,11 @@ FROM plugin_dbnsfp_src
 
 [[source]]
 provider = "csv"
-# Canonical dbNSFP distribution. Cache builders may override this at build time
-# with a gzip/BGZF-compressed per-chromosome tabix slice so only that slice is
-# materialized to a temporary plain file for DataFusion's parallel CSV scan.
+# Canonical BGZF+tabix dbNSFP distribution. The Rust cache builder queries only
+# the current chromosome and materializes that region to a scoped plain file
+# for DataFusion's parallel CSV scan.
 path = "dbNSFP5.3.1a_grch38.gz"
+index = "tabix"
   [source.csv]
   delimiter   = "\t"
   has_header  = false
