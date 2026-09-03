@@ -1,6 +1,7 @@
 # ClinVar source manifest.
 #
-# Source: https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz
+# Source: https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/archive_2.0/2026/clinvar_20260706.vcf.gz
+#         (the 2026-07-06 weekly release; clinvar.vcf.gz at the top level moves weekly)
 # VEP usage: not a --plugin, a --custom annotation, e.g.
 #   --custom clinvar.vcf.gz,ClinVar,vcf,exact,0,CLNSIG,CLNREVSTAT,CLNDN,CLNVC,CLNVI
 #
@@ -136,6 +137,11 @@ FROM trimmed
 provider = "vcf"
 # Overridden at build time with --source-path (the raw clinvar.vcf.gz).
 path = "clinvar.vcf.gz"
+# `clinvar.vcf.gz` at the top-level FTP path is a moving weekly target; the
+# URL pins the dated 2026-07-06 release this cache was built and validated
+# from. Upstream MD5 (clinvar_20260706.vcf.gz.md5 alongside it).
+url = "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/archive_2.0/2026/clinvar_20260706.vcf.gz"
+md5 = "f78d25d49e17a070957a127e409f87b9"
 index = "tabix"
 record_layout = true
 

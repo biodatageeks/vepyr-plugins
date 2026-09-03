@@ -79,11 +79,16 @@ scripts/validate_manifests.py       static contract check (runs in CI)
    [manifest reference](https://biodatageeks.org/vepyr/plugins/#manifest-structure).
    Note the TOML ordering rule: top-level scalars (`plugin_name`,
    `coordinate_system`, `ingest_sql`) must precede any table header.
-3. Validate: `python scripts/validate_manifests.py` — checks plugin/filename
-   agreement, providers, coordinate system, tabix/compression pairing, value and
-   match column uniqueness, CSQ field names, `allele_match` and `field_order`.
+3. Record provenance: every `[[source]]` carries the upstream `url` the raw
+   file was downloaded from and the `md5` of that file (the publisher's
+   checksum where one exists), so a cache can be traced back to exact input
+   bytes. Never point `url` at a mirror or a Drive share.
+4. Validate: `python scripts/validate_manifests.py` — checks plugin/filename
+   agreement, providers, coordinate system, tabix/compression pairing, source
+   `url`/`md5` presence and shape, value and match column uniqueness, CSQ
+   field names, `allele_match` and `field_order`.
    CI runs it on every pull request.
-4. Build one chromosome with `build_plugin_cache` and compare the resulting CSQ
+5. Build one chromosome with `build_plugin_cache` and compare the resulting CSQ
    fields against an Ensembl VEP 116 run before opening a PR.
 
 The [`adding-a-plugin`](.claude/skills/adding-a-plugin/SKILL.md) skill walks

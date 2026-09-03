@@ -34,6 +34,11 @@ provider = "tsv"
 # BGZF+tabix build artifact prepared from the upstream gzip distribution. The
 # Rust cache builder queries only the chromosome currently being built.
 path = "AlphaMissense_hg38.bgz.tsv.gz"
+# url/md5 describe the upstream gzip distribution (MD5 from the GCS object
+# metadata). `path` is its BGZF re-compression (same bytes decompressed;
+# MD5 46d0028375cf95088bd014ff6855cffd) with a tabix index built on top.
+url = "https://storage.googleapis.com/dm_alphamissense/AlphaMissense_hg38.tsv.gz"
+md5 = "9fd167735f16a1b87da6eb3e4c25fcb5"
 index = "tabix"
   [source.csv]
   delimiter   = "\t"

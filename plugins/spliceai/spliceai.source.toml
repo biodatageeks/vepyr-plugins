@@ -77,6 +77,10 @@ provider = "vcf"
 # Overridden at build time with --source-path (the raw
 # spliceai_scores.masked.snv.ensembl_mane.grch38.110.vcf.gz).
 path = "spliceai_scores.masked.snv.ensembl_mane.grch38.110.vcf.gz"
+# Ensembl publishes no checksum for this directory; MD5 computed on the
+# downloaded copy (28,512,375,517 bytes, matching the FTP Content-Length).
+url = "https://ftp.ensembl.org/pub/data_files/homo_sapiens/GRCh38/variation_plugins/spliceai_scores.masked.snv.ensembl_mane.grch38.110.vcf.gz"
+md5 = "66d9183dcaadd7a35c186dee61983773"
 index = "tabix"
 
 # Per-transcript match discriminator: gene SYMBOL (requires the framework's
