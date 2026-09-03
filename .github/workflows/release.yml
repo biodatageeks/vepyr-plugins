@@ -105,12 +105,31 @@ jobs:
       - name: Remove orphaned tag if the release was not created
         if: ${{ failure() && steps.release.outcome == 'failure' }}
         run: |
+          # Only a confirmed HTTP 404 for the release together with a confirmed
+          # HTTP 200 for the tag ref justifies deleting the tag. A transient
+          # error from either lookup (empty status) must never be read as
+          # "no release", otherwise a real release could lose its tag.
           tag="${{ steps.version.outputs.next }}"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release $tag exists; leaving tag in place"
-          elif gh api "repos/${{ github.repository }}/git/ref/tags/$tag" >/dev/null 2>&1; then
-            echo "Deleting tag $tag so the release can be retried"
-            gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag"
+          repo="${{ github.repository }}"
+          http_status() {
+            gh api -i "$1" 2>/dev/null | sed -n '1s#^HTTP/[0-9.]* \([0-9]*\).*#\1#p' || true
+          }
+          release_status=""
+          for attempt in 1 2 3; do
+            release_status="$(http_status "repos/${repo}/releases/tags/${tag}")"
+            case "$release_status" in 200|404) break ;; esac
+            echo "Release lookup attempt ${attempt} returned '${release_status:-no response}'; retrying"
+            sleep 10
+          done
+          ref_status="$(http_status "repos/${repo}/git/ref/tags/${tag}")"
+          echo "release: HTTP ${release_status:-none}; tag ref: HTTP ${ref_status:-none}"
+          if [ "$release_status" = 404 ] && [ "$ref_status" = 200 ]; then
+            echo "Deleting orphaned tag ${tag} so the release can be retried"
+            gh api -X DELETE "repos/${repo}/git/refs/tags/${tag}"
+          elif [ "$release_status" = 200 ]; then
+            echo "Release ${tag} exists; leaving the tag in place"
+          elif [ "$release_status" = 404 ] && [ "$ref_status" = 404 ]; then
+            echo "Neither release nor tag ${tag} exists; nothing to clean up"
           else
-            echo "No tag $tag on the remote; nothing to clean up"
+            echo "::warning::Could not confirm the state of ${tag}; not touching it. Check ${{ github.server_url }}/${repo}/releases and ${{ github.server_url }}/${repo}/tags manually."
           fi
