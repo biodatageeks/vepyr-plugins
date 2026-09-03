@@ -87,6 +87,13 @@ provider = "csv"
 # the current chromosome and materializes that region to a scoped plain file
 # for DataFusion's parallel CSV scan.
 path = "dbNSFP5.3.1a_grch38.gz"
+# From v5.0 dbNSFP hosts the Ensembl-VEP-ready files (this exact
+# dbNSFP5.3.1a_grch38.gz plus its .tbi and .md5) behind an academic
+# registration at the download page below (see VEP_plugins dbNSFP.pm), so
+# there is no stable direct URL. `md5` is from the accompanying
+# dbNSFP5.3.1a_grch38.gz.md5.
+url = "https://www.dbnsfp.org/download"
+md5 = "afff632f13325c687477d64ca0c63b1a"
 index = "tabix"
   [source.csv]
   delimiter   = "\t"

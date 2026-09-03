@@ -18,6 +18,7 @@ VALUE_TYPES = {"Utf8", "Float32", "Int32"}
 ALLELE_MATCHES = {"exact", "minimised"}
 FIELD_ORDERS = {"declared", "alphabetical"}
 CSQ_FIELD = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.+-]*$")
+MD5_HEX = re.compile(r"^[0-9a-f]{32}$")
 RESERVED_VCF_KEYS = {
     "fileformat",
     "fileDate",
@@ -114,6 +115,14 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
             if provider not in PROVIDERS:
                 errors.append(f"{path}: {label}.provider must be one of {sorted(PROVIDERS)}")
             require_string(source.get("path"), path, f"{label}.path", errors)
+            url = require_string(source.get("url"), path, f"{label}.url", errors)
+            if url is not None and not url.startswith("https://"):
+                errors.append(f"{path}: {label}.url must be an https:// URL")
+            md5 = require_string(source.get("md5"), path, f"{label}.md5", errors)
+            if md5 is not None and not MD5_HEX.fullmatch(md5):
+                errors.append(
+                    f"{path}: {label}.md5 must be 32 lowercase hex characters"
+                )
             source_index = source.get("index")
             if source_index not in {None, "tabix"}:
                 errors.append(f"{path}: {label}.index must be 'tabix'")

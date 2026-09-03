@@ -79,6 +79,9 @@ FROM trimmed
 provider = "csv"
 part     = "snv"
 path     = "whole_genome_SNVs.tsv.gz"
+# Upstream MD5 (krishna.gs.washington.edu/download/CADD/v1.7/GRCh38/MD5SUMs).
+url      = "https://krishna.gs.washington.edu/download/CADD/v1.7/GRCh38/whole_genome_SNVs.tsv.gz"
+md5      = "88577a55f1cd519d44e0f415ba248eb9"
 index    = "tabix"
   [source.csv]
   delimiter   = "\t"
@@ -102,6 +105,9 @@ index    = "tabix"
 provider = "csv"
 part     = "indel"
 path     = "gnomad.genomes.r4.0.indel.tsv.gz"
+# Upstream MD5 (krishna.gs.washington.edu/download/CADD/v1.7/GRCh38/MD5SUMs).
+url      = "https://krishna.gs.washington.edu/download/CADD/v1.7/GRCh38/gnomad.genomes.r4.0.indel.tsv.gz"
+md5      = "4b9c685c96d396af4d001c2f7dd9d8f9"
 index    = "tabix"
   [source.csv]
   delimiter   = "\t"
