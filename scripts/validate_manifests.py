@@ -123,6 +123,21 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
                 errors.append(
                     f"{path}: {label}.md5 must be 32 lowercase hex characters"
                 )
+            # Optional: the digest of the actual build input when it is a
+            # derived artifact of `url` (a BGZF re-compression). The builder
+            # verifies source_path against it in preference to `md5`, so a
+            # value equal to `md5` is redundant and a likely copy-paste slip.
+            path_md5 = source.get("path_md5")
+            if path_md5 is not None:
+                if not isinstance(path_md5, str) or not MD5_HEX.fullmatch(path_md5):
+                    errors.append(
+                        f"{path}: {label}.path_md5 must be 32 lowercase hex characters"
+                    )
+                elif path_md5 == md5:
+                    errors.append(
+                        f"{path}: {label}.path_md5 equals md5; omit it when the build "
+                        "input is the upstream file itself"
+                    )
             source_index = source.get("index")
             if source_index not in {None, "tabix"}:
                 errors.append(f"{path}: {label}.index must be 'tabix'")
