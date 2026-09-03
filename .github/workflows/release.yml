@@ -1,0 +1,107 @@
+name: Release
+
+# Manually cut a semantic-version release: bump the latest vMAJOR.MINOR.PATCH
+# tag by the chosen component, tag master, and publish a GitHub release whose
+# notes list the changed plugin manifests plus the merged pull requests.
+# Consumers then pin the tag as `version=` in vepyr.build_plugin_cache().
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semantic version component to bump"
+        type: choice
+        required: true
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: "Compute the version and notes only; do not tag or release"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Refuse to release from anything but master
+        if: github.ref != 'refs/heads/master'
+        run: |
+          echo "::error::Releases are cut from master only (workflow was run on ${{ github.ref }})"
+          exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history and tags for version lookup and notes
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate plugin source manifests
+        run: python scripts/validate_manifests.py
+
+      - name: Compute next version
+        id: version
+        run: |
+          previous="$(scripts/next_version.sh current)"
+          next="$(scripts/next_version.sh "${{ inputs.bump }}")"
+          if git rev-parse -q --verify "refs/tags/${next}" >/dev/null; then
+            echo "::error::Tag ${next} already exists"
+            exit 1
+          fi
+          echo "previous=${previous}" >> "$GITHUB_OUTPUT"
+          echo "next=${next}" >> "$GITHUB_OUTPUT"
+          echo "Bumping ${{ inputs.bump }}: ${previous:-<none>} -> ${next}"
+
+      - name: Build release notes
+        id: notes
+        run: |
+          scripts/release_notes.sh "${{ steps.version.outputs.previous }}" "${{ steps.version.outputs.next }}" > release-notes.md
+          {
+            echo "# Release ${{ steps.version.outputs.next }}"
+            echo
+            echo "Bump: \`${{ inputs.bump }}\` from \`${{ steps.version.outputs.previous || '<none>' }}\`"
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo
+              echo "> **Dry run** — nothing was tagged or published."
+            fi
+            echo
+            cat release-notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create and push tag
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.next }}" -m "Release ${{ steps.version.outputs.next }}"
+          git push origin "refs/tags/${{ steps.version.outputs.next }}"
+
+      - name: Create GitHub release
+        if: ${{ !inputs.dry_run }}
+        run: |
+          args=(
+            "${{ steps.version.outputs.next }}"
+            --title "${{ steps.version.outputs.next }}"
+            --notes-file release-notes.md
+            --generate-notes
+            --verify-tag
+          )
+          if [ -n "${{ steps.version.outputs.previous }}" ]; then
+            args+=(--notes-start-tag "${{ steps.version.outputs.previous }}")
+          fi
+          gh release create "${args[@]}"
+          echo "Released ${{ steps.version.outputs.next }}: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.version.outputs.next }}"
