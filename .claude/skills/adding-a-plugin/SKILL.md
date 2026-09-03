@@ -63,6 +63,31 @@ Given a URL or file, answer these first — they decide almost everything else:
    - AlphaMissense (match column `protein_variant`): overlapping UniProt
      entries CAN repeat even the full key with different scores — needs
      dedup, `assume_unique` must stay unset.
+5. **Where does it come from, and what are its exact bytes?** Every
+   `[[source]]` MUST declare `url` and `md5` (the validator rejects a manifest
+   without them):
+   - `url` is the **canonical upstream** download — the publisher's FTP /
+     bucket / release page, never a mirror, a Drive share or a local path. If
+     the top-level file is a moving target (ClinVar's weekly `clinvar.vcf.gz`),
+     pin the dated release you actually built from (`archive_2.0/<year>/
+     clinvar_<date>.vcf.gz`); match its `.md5` against your copy to find which
+     date that is. If the build input is a local re-compression of the
+     upstream file (AlphaMissense's BGZF+tabix rebuild of a plain gzip), `url`
+     and `md5` still name the upstream file — note the artifact's md5 in a
+     comment.
+   - `md5` comes from the **publisher first**: CADD ships `MD5SUMs`, ClinVar a
+     `.md5` beside every VCF, GCS exposes `md5Hash` (base64 → hex) via
+     `https://storage.googleapis.com/storage/v1/b/<bucket>/o/<object>`, dbNSFP
+     ships a `.md5` with its VEP-ready file. Check the source's `# Source:`
+     URL and the plugin's header in `Ensembl/VEP_plugins` for the download
+     location. Only when upstream publishes nothing (Ensembl's
+     `variation_plugins/` FTP dir for SpliceAI) compute it on your downloaded
+     copy, confirm the byte size matches the server's `Content-Length`, and
+     say so in a comment.
+   - A copy already on Drive doesn't need re-downloading to hash: Drive stores
+     the MD5, and `rclone lsjson --hash --hash-type md5 -R gdrive-mw: --drive-root-folder-id <id>`
+     returns it without transferring the file. The Drive MCP `get_file_metadata`
+     does NOT expose it.
 
 ### Known source scale (build feasibility on a 16GB machine, learned the hard way)
 
@@ -183,6 +208,8 @@ it as `plugin_<name>_src_<part>`, and `ingest_sql` can combine the tables:
 provider = "csv"
 part     = "snv"
 path     = "whole_genome_SNVs.tsv.gz"
+url      = "https://krishna.gs.washington.edu/download/CADD/v1.7/GRCh38/whole_genome_SNVs.tsv.gz"
+md5      = "88577a55f1cd519d44e0f415ba248eb9"   # from upstream MD5SUMs
   [source.csv]
   # ...
 
@@ -190,6 +217,8 @@ path     = "whole_genome_SNVs.tsv.gz"
 provider = "csv"
 part     = "indel"
 path     = "gnomad.genomes.r4.0.indel.tsv.gz"
+url      = "https://krishna.gs.washington.edu/download/CADD/v1.7/GRCh38/gnomad.genomes.r4.0.indel.tsv.gz"
+md5      = "4b9c685c96d396af4d001c2f7dd9d8f9"   # from upstream MD5SUMs
   [source.csv]
   # ...
 ```
