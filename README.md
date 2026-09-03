@@ -67,6 +67,9 @@ build fully offline. A manifest with several `[[source]]` parts (CADD) takes a
 ```
 plugins/<name>/<name>.source.toml   one manifest per plugin
 scripts/validate_manifests.py       static contract check (runs in CI)
+scripts/next_version.sh             next semver tag (used by the release workflow)
+scripts/release_notes.sh            manifest-change summary for release notes
+.github/workflows/release.yml       manual tag + GitHub release (patch/minor/major)
 .claude/skills/adding-a-plugin/     end-to-end guide for authoring a new plugin
 ```
 
@@ -94,6 +97,26 @@ scripts/validate_manifests.py       static contract check (runs in CI)
 The [`adding-a-plugin`](.claude/skills/adding-a-plugin/SKILL.md) skill walks
 through source triage, memory-safe per-chromosome building and the parity gate
 in detail.
+
+## Releasing
+
+Releases are git tags of the form `vMAJOR.MINOR.PATCH`; users pin one as the
+`version` of `build_plugin_cache()`. To cut a release run the **Release**
+workflow from the Actions tab (or `gh workflow run release.yml -f bump=minor`)
+on `master` and pick the bump:
+
+| Bump | When |
+|---|---|
+| `patch` | A manifest fix that keeps the emitted CSQ fields and values as they were (URL/md5 update, typo, validator-only change). |
+| `minor` | A new plugin, or new CSQ fields added to an existing one. |
+| `major` | A manifest change that alters or removes existing CSQ fields, or a change in what `version` resolves to. |
+
+The workflow re-runs the manifest validator, bumps the latest tag with
+`scripts/next_version.sh`, then creates the tag and the GitHub release in one
+step; the notes list the manifests changed since the previous tag followed by
+the merged pull requests. Tick **dry_run** to preview the version and notes in the job
+summary without tagging. `scripts/next_version.sh minor` prints the next tag
+locally.
 
 ## Licence
 

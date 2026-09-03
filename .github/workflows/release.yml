@@ -1,0 +1,135 @@
+name: Release
+
+# Manually cut a semantic-version release: bump the latest vMAJOR.MINOR.PATCH
+# tag by the chosen component, tag master and publish a GitHub release whose
+# notes list the changed plugin manifests plus the merged pull requests.
+# Consumers then pin the tag as `version=` in vepyr.build_plugin_cache().
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semantic version component to bump"
+        type: choice
+        required: true
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: "Compute the version and notes only; do not tag or release"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Refuse to release from anything but master
+        if: github.ref != 'refs/heads/master'
+        run: |
+          echo "::error::Releases are cut from master only (workflow was run on ${{ github.ref }})"
+          exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history and tags for version lookup and notes
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate plugin source manifests
+        run: python scripts/validate_manifests.py
+
+      - name: Compute next version
+        id: version
+        run: |
+          previous="$(scripts/next_version.sh current)"
+          next="$(scripts/next_version.sh "${{ inputs.bump }}")"
+          if git rev-parse -q --verify "refs/tags/${next}" >/dev/null; then
+            echo "::error::Tag ${next} already exists"
+            exit 1
+          fi
+          echo "previous=${previous}" >> "$GITHUB_OUTPUT"
+          echo "next=${next}" >> "$GITHUB_OUTPUT"
+          echo "Bumping ${{ inputs.bump }}: ${previous:-<none>} -> ${next}"
+
+      - name: Build release notes
+        id: notes
+        run: |
+          scripts/release_notes.sh "${{ steps.version.outputs.previous }}" "${{ steps.version.outputs.next }}" > release-notes.md
+          {
+            echo "# Release ${{ steps.version.outputs.next }}"
+            echo
+            echo "Bump: \`${{ inputs.bump }}\` from \`${{ steps.version.outputs.previous || '<none>' }}\`"
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo
+              echo "> **Dry run** — nothing was tagged or published."
+            fi
+            echo
+            cat release-notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create tag and GitHub release
+        id: release
+        if: ${{ !inputs.dry_run }}
+        run: |
+          # One API call creates the tag (at the validated commit) and the
+          # release together, so a failure cannot leave a tag behind without a
+          # release. The tag must not be pushed separately beforehand.
+          args=(
+            "${{ steps.version.outputs.next }}"
+            --target "${{ github.sha }}"
+            --title "${{ steps.version.outputs.next }}"
+            --notes-file release-notes.md
+            --generate-notes
+          )
+          if [ -n "${{ steps.version.outputs.previous }}" ]; then
+            args+=(--notes-start-tag "${{ steps.version.outputs.previous }}")
+          fi
+          gh release create "${args[@]}"
+          echo "Released ${{ steps.version.outputs.next }}: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.version.outputs.next }}"
+
+      - name: Remove orphaned tag if the release was not created
+        if: ${{ failure() && steps.release.outcome == 'failure' }}
+        run: |
+          # Only a confirmed HTTP 404 for the release together with a confirmed
+          # HTTP 200 for the tag ref justifies deleting the tag. A transient
+          # error from either lookup (empty status) must never be read as
+          # "no release", otherwise a real release could lose its tag.
+          tag="${{ steps.version.outputs.next }}"
+          repo="${{ github.repository }}"
+          http_status() {
+            gh api -i "$1" 2>/dev/null | sed -n '1s#^HTTP/[0-9.]* \([0-9]*\).*#\1#p' || true
+          }
+          release_status=""
+          for attempt in 1 2 3; do
+            release_status="$(http_status "repos/${repo}/releases/tags/${tag}")"
+            case "$release_status" in 200|404) break ;; esac
+            echo "Release lookup attempt ${attempt} returned '${release_status:-no response}'; retrying"
+            sleep 10
+          done
+          ref_status="$(http_status "repos/${repo}/git/ref/tags/${tag}")"
+          echo "release: HTTP ${release_status:-none}; tag ref: HTTP ${ref_status:-none}"
+          if [ "$release_status" = 404 ] && [ "$ref_status" = 200 ]; then
+            echo "Deleting orphaned tag ${tag} so the release can be retried"
+            gh api -X DELETE "repos/${repo}/git/refs/tags/${tag}"
+          elif [ "$release_status" = 200 ]; then
+            echo "Release ${tag} exists; leaving the tag in place"
+          elif [ "$release_status" = 404 ] && [ "$ref_status" = 404 ]; then
+            echo "Neither release nor tag ${tag} exists; nothing to clean up"
+          else
+            echo "::warning::Could not confirm the state of ${tag}; not touching it. Check ${{ github.server_url }}/${repo}/releases and ${{ github.server_url }}/${repo}/tags manually."
+          fi
