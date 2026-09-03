@@ -112,9 +112,9 @@ on `master` and pick the bump:
 | `major` | A manifest change that alters or removes existing CSQ fields, or a change in what `version` resolves to. |
 
 The workflow re-runs the manifest validator, bumps the latest tag with
-`scripts/next_version.sh`, pushes the tag and publishes a GitHub release whose
-notes list the manifests changed since the previous tag followed by the merged
-pull requests. Tick **dry_run** to preview the version and notes in the job
+`scripts/next_version.sh`, then creates the tag and the GitHub release in one
+step; the notes list the manifests changed since the previous tag followed by
+the merged pull requests. Tick **dry_run** to preview the version and notes in the job
 summary without tagging. `scripts/next_version.sh minor` prints the next tag
 locally.
 

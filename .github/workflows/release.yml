@@ -1,7 +1,7 @@
 name: Release
 
 # Manually cut a semantic-version release: bump the latest vMAJOR.MINOR.PATCH
-# tag by the chosen component, tag master, and publish a GitHub release whose
+# tag by the chosen component, tag master and publish a GitHub release whose
 # notes list the changed plugin manifests plus the merged pull requests.
 # Consumers then pin the tag as `version=` in vepyr.build_plugin_cache().
 
@@ -82,26 +82,35 @@ jobs:
             cat release-notes.md
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Create and push tag
+      - name: Create tag and GitHub release
+        id: release
         if: ${{ !inputs.dry_run }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "${{ steps.version.outputs.next }}" -m "Release ${{ steps.version.outputs.next }}"
-          git push origin "refs/tags/${{ steps.version.outputs.next }}"
-
-      - name: Create GitHub release
-        if: ${{ !inputs.dry_run }}
-        run: |
+          # One API call creates the tag (at the validated commit) and the
+          # release together, so a failure cannot leave a tag behind without a
+          # release. The tag must not be pushed separately beforehand.
           args=(
             "${{ steps.version.outputs.next }}"
+            --target "${{ github.sha }}"
             --title "${{ steps.version.outputs.next }}"
             --notes-file release-notes.md
             --generate-notes
-            --verify-tag
           )
           if [ -n "${{ steps.version.outputs.previous }}" ]; then
             args+=(--notes-start-tag "${{ steps.version.outputs.previous }}")
           fi
           gh release create "${args[@]}"
           echo "Released ${{ steps.version.outputs.next }}: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.version.outputs.next }}"
+
+      - name: Remove orphaned tag if the release was not created
+        if: ${{ failure() && steps.release.outcome == 'failure' }}
+        run: |
+          tag="${{ steps.version.outputs.next }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag exists; leaving tag in place"
+          elif gh api "repos/${{ github.repository }}/git/ref/tags/$tag" >/dev/null 2>&1; then
+            echo "Deleting tag $tag so the release can be retried"
+            gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag"
+          else
+            echo "No tag $tag on the remote; nothing to clean up"
+          fi

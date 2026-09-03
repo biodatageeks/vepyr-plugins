@@ -34,10 +34,17 @@ if [ -n "$previous" ]; then
 else
   echo "## Plugin manifests in this first release"
   echo
-  for path in plugins/*/*.source.toml; do
-    plugin="$(basename "$(dirname "$path")")"
-    echo "- **${plugin}** — \`${path}\`"
-  done
+  shopt -s nullglob
+  manifests=(plugins/*/*.source.toml)
+  shopt -u nullglob
+  if [ "${#manifests[@]}" -eq 0 ]; then
+    echo "_No plugin manifests found._"
+  else
+    for path in "${manifests[@]}"; do
+      plugin="$(basename "$(dirname "$path")")"
+      echo "- **${plugin}** — \`${path}\`"
+    done
+  fi
 fi
 
 cat <<MD
