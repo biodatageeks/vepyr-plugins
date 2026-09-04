@@ -101,14 +101,16 @@ scripts/release_notes.sh            manifest-change summary for release notes
 3. Record provenance: every `[[source]]` carries the upstream `url` the raw
    file was downloaded from and the `md5` of that file (the publisher's
    checksum where one exists), so a cache can be traced back to exact input
-   bytes. Never point `url` at a mirror or a Drive share. `build_plugin_cache`
-   hashes the file `source_path` resolves to and refuses a mismatch, so when
-   the build input is a derived artifact of `url` (AlphaMissense's BGZF+tabix
-   re-compression of the upstream plain gzip) also declare `path_md5`, the
-   digest of that artifact.
+   bytes. Never point `url` at a mirror or a Drive share. `md5` always
+   describes the file at `url`. If the build input is a derived artifact of
+   that file (AlphaMissense's BGZF+tabix re-compression of the upstream plain
+   gzip), describe the preprocessing in a `README.md` next to the manifest
+   (see [`plugins/alphamissense`](plugins/alphamissense/README.md)) rather
+   than adding a second digest to the manifest, and build with
+   `verify_source` disabled since the derived file cannot match `md5`.
 4. Validate: `python scripts/validate_manifests.py` — checks plugin/filename
    agreement, providers, coordinate system, tabix/compression pairing, source
-   `url`/`md5` presence and shape (and `path_md5` shape), value and match column uniqueness, CSQ
+   `url`/`md5` presence and shape, value and match column uniqueness, CSQ
    field names, `allele_match` and `field_order`, and rejects the retired
    `csq_rank` key. CI runs it on every pull request.
 5. Build one chromosome with `build_plugin_cache` and compare the resulting CSQ

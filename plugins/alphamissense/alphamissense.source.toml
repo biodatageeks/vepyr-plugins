@@ -32,16 +32,16 @@ FROM plugin_alphamissense_src
 provider = "tsv"
 # BGZF+tabix build artifact prepared from the upstream gzip distribution. The
 # Rust cache builder queries only the chromosome currently being built.
+# The upstream file is plain gzip and must be re-compressed with bgzip and
+# tabix-indexed before the build -- see README.md in this directory.
 path = "AlphaMissense_hg38.bgz.tsv.gz"
 # url/md5 describe the upstream gzip distribution (MD5 from the GCS object
-# metadata). `path` is its BGZF re-compression (same bytes decompressed) with
-# a tabix index built on top, so it cannot share the upstream digest;
-# `path_md5` is the digest of that build input, which is what the builder
-# verifies `source_path` against (see vepyr#68).
-url      = "https://storage.googleapis.com/dm_alphamissense/AlphaMissense_hg38.tsv.gz"
-md5      = "9fd167735f16a1b87da6eb3e4c25fcb5"
-path_md5 = "46d0028375cf95088bd014ff6855cffd"
-index    = "tabix"
+# metadata). The BGZF re-compression at `path` holds the same bytes once
+# decompressed but has a different digest, so it cannot be checked against
+# `md5`; build it with verify_source disabled (see README.md).
+url = "https://storage.googleapis.com/dm_alphamissense/AlphaMissense_hg38.tsv.gz"
+md5 = "9fd167735f16a1b87da6eb3e4c25fcb5"
+index = "tabix"
   [source.csv]
   delimiter   = "\t"
   has_header  = false

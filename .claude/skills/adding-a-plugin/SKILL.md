@@ -73,11 +73,14 @@ Given a URL or file, answer these first — they decide almost everything else:
      clinvar_<date>.vcf.gz`); match its `.md5` against your copy to find which
      date that is. If the build input is a local re-compression of the
      upstream file (AlphaMissense's BGZF+tabix rebuild of a plain gzip), `url`
-     and `md5` still name the upstream file, and `path_md5` names the digest
-     of the artifact actually fed to the build — `build_plugin_cache` hashes
-     `source_path` and checks it against `path_md5` (else `md5`) before
-     ingesting anything, so without `path_md5` a derived input fails strict
-     verification.
+     and `md5` still name the upstream file — do NOT add a second digest key
+     to the manifest. Write the preprocessing steps (commands, tabix columns,
+     and the digest the derived file is expected to hash to, as information)
+     in a `README.md` beside the manifest, following
+     `plugins/alphamissense/README.md`. `build_plugin_cache` hashes
+     `source_path` against `md5` before ingesting anything, so a derived
+     input must be built with `verify_source=False` (or `"warn"`); say so in
+     that README.
    - `md5` comes from the **publisher first**: CADD ships `MD5SUMs`, ClinVar a
      `.md5` beside every VCF, GCS exposes `md5Hash` (base64 → hex) via
      `https://storage.googleapis.com/storage/v1/b/<bucket>/o/<object>`, dbNSFP
