@@ -62,6 +62,22 @@ build fully offline. A manifest with several `[[source]]` parts (CADD) takes a
 `plugin_cache_root` and the plugin's fields appear in `CSQ` — see
 [Annotating with plugins](https://biodatageeks.org/vepyr/plugins/#annotating-with-plugins).
 
+### CSQ block order
+
+Where a plugin's block sits in the `CSQ` string is a property of the
+annotation run, not of the manifest: `annotate(plugins=[...])` emits the
+blocks in the order the names are listed, and `plugins=None` (every plugin
+under `plugin_cache_root`) falls back to alphabetical plugin-name order,
+mirroring how Ensembl VEP orders `--plugin` flags. Manifests therefore carry
+no rank; `field_order` only orders the fields *within* one plugin's block.
+
+The golden Ensembl VEP 116 comparison the manifests are validated against
+uses this order — pass it explicitly when reproducing the parity gate:
+
+```python
+plugins=["spliceai", "cadd", "alphamissense", "dbnsfp", "clinvar"]
+```
+
 ## Layout
 
 ```
@@ -93,8 +109,8 @@ scripts/release_notes.sh            manifest-change summary for release notes
 4. Validate: `python scripts/validate_manifests.py` — checks plugin/filename
    agreement, providers, coordinate system, tabix/compression pairing, source
    `url`/`md5` presence and shape (and `path_md5` shape), value and match column uniqueness, CSQ
-   field names, `allele_match` and `field_order`.
-   CI runs it on every pull request.
+   field names, `allele_match` and `field_order`, and rejects the retired
+   `csq_rank` key. CI runs it on every pull request.
 5. Build one chromosome with `build_plugin_cache` and compare the resulting CSQ
    fields against an Ensembl VEP 116 run before opening a PR.
 

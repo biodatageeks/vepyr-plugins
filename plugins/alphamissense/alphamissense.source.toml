@@ -14,7 +14,6 @@
 
 plugin_name       = "alphamissense"
 coordinate_system = "1-based"
-csq_rank          = 3
 field_order       = "alphabetical"
 # AlphaMissense.pm calls get_matched_variant_alleles() before comparing rows.
 allele_match      = "minimised"

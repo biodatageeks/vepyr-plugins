@@ -43,7 +43,6 @@
 
 plugin_name       = "spliceai"
 coordinate_system = "1-based"
-csq_rank          = 1
 field_order       = "alphabetical"
 assume_unique     = true
 ingest_sql = """

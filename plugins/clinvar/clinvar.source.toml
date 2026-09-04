@@ -58,7 +58,6 @@
 
 plugin_name       = "clinvar"
 coordinate_system = "1-based"
-csq_rank          = 5
 field_order       = "declared"
 # VEP's --custom VCF source minimises alleles before comparing (verified on
 # chr1:65364614 GT>TT, which it matches to ClinVar's G>T row 1258041). The

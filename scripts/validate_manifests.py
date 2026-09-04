@@ -93,11 +93,14 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
     field_order = manifest.get("field_order", "declared")
     if field_order not in FIELD_ORDERS:
         errors.append(f"{path}: field_order must be one of {sorted(FIELD_ORDERS)}")
-    csq_rank = manifest.get("csq_rank")
-    if csq_rank is not None and (
-        isinstance(csq_rank, bool) or not isinstance(csq_rank, int) or csq_rank < 0
-    ):
-        errors.append(f"{path}: csq_rank must be a non-negative integer")
+    # Retired: the position of a plugin's CSQ block is decided per run by the
+    # order of `annotate(plugins=[...])` (alphabetical when unspecified), not
+    # by the manifest. Reject the key so a copy-paste cannot reintroduce it.
+    if "csq_rank" in manifest:
+        errors.append(
+            f"{path}: csq_rank is no longer supported; CSQ block order is set by "
+            "the `plugins` order passed to vepyr.annotate()"
+        )
     if not isinstance(manifest.get("assume_unique", False), bool):
         errors.append(f"{path}: assume_unique must be a boolean")
 

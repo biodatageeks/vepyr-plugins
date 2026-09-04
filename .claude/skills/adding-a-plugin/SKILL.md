@@ -345,6 +345,13 @@ If there's no prior-good shard to diff against (first time adding this plugin),
 at minimum: reconcile row counts with an independent query of the raw source,
 and manually probe a handful of known variants against that source.
 
+When comparing `CSQ` output against Ensembl VEP, remember that the position of
+a plugin's block is set per run, not by the manifest: pass the same order to
+`annotate(plugins=[...])` that the VEP run gave its `--plugin` flags (the golden
+116 runs use `spliceai, cadd, alphamissense, dbnsfp, clinvar`). `plugins=None`
+falls back to alphabetical plugin-name order. Do not add a `csq_rank` key —
+the validator rejects it.
+
 ## 5. Upload
 
 ```bash
