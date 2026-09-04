@@ -92,7 +92,7 @@ scripts/release_notes.sh            manifest-change summary for release notes
    digest of that artifact.
 4. Validate: `python scripts/validate_manifests.py` — checks plugin/filename
    agreement, providers, coordinate system, tabix/compression pairing, source
-   `url`/`md5` presence and shape (and `path_md5` shape), value and match column uniqueness, CSQ
+   `url`/`md5` presence and shape (and `path_md5`/`index_md5` shape), value and match column uniqueness, CSQ
    field names, `allele_match` and `field_order`.
    CI runs it on every pull request.
 5. Build one chromosome with `build_plugin_cache` and compare the resulting CSQ

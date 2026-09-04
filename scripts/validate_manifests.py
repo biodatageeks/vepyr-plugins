@@ -141,6 +141,16 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
             source_index = source.get("index")
             if source_index not in {None, "tabix"}:
                 errors.append(f"{path}: {label}.index must be 'tabix'")
+            # Optional: the digest of the sibling `.tbi`, verified like `path`
+            # when the publisher ships one.
+            index_md5 = source.get("index_md5")
+            if index_md5 is not None:
+                if not isinstance(index_md5, str) or not MD5_HEX.fullmatch(index_md5):
+                    errors.append(
+                        f"{path}: {label}.index_md5 must be 32 lowercase hex characters"
+                    )
+                elif source_index is None:
+                    errors.append(f"{path}: {label}.index_md5 requires index = 'tabix'")
             if source_index == "tabix" and provider not in {"csv", "tsv", "vcf"}:
                 errors.append(
                     f"{path}: {label}.index='tabix' is supported only for csv/tsv/vcf"
