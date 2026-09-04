@@ -34,7 +34,6 @@
 
 plugin_name       = "cadd"
 coordinate_system = "1-based"
-csq_rank          = 2
 field_order       = "alphabetical"
 # CADD.pm calls get_matched_variant_alleles() before comparing rows.
 allele_match      = "minimised"

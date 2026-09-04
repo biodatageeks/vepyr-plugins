@@ -93,11 +93,14 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
     field_order = manifest.get("field_order", "declared")
     if field_order not in FIELD_ORDERS:
         errors.append(f"{path}: field_order must be one of {sorted(FIELD_ORDERS)}")
-    csq_rank = manifest.get("csq_rank")
-    if csq_rank is not None and (
-        isinstance(csq_rank, bool) or not isinstance(csq_rank, int) or csq_rank < 0
-    ):
-        errors.append(f"{path}: csq_rank must be a non-negative integer")
+    # Retired: the position of a plugin's CSQ block is decided per run by the
+    # order of `annotate(plugins=[...])` (alphabetical when unspecified), not
+    # by the manifest. Reject the key so a copy-paste cannot reintroduce it.
+    if "csq_rank" in manifest:
+        errors.append(
+            f"{path}: csq_rank is no longer supported; CSQ block order is set by "
+            "the `plugins` order passed to vepyr.annotate()"
+        )
     if not isinstance(manifest.get("assume_unique", False), bool):
         errors.append(f"{path}: assume_unique must be a boolean")
 
@@ -123,6 +126,21 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
                 errors.append(
                     f"{path}: {label}.md5 must be 32 lowercase hex characters"
                 )
+            # Optional: the digest of the actual build input when it is a
+            # derived artifact of `url` (a BGZF re-compression). The builder
+            # verifies source_path against it in preference to `md5`, so a
+            # value equal to `md5` is redundant and a likely copy-paste slip.
+            path_md5 = source.get("path_md5")
+            if path_md5 is not None:
+                if not isinstance(path_md5, str) or not MD5_HEX.fullmatch(path_md5):
+                    errors.append(
+                        f"{path}: {label}.path_md5 must be 32 lowercase hex characters"
+                    )
+                elif path_md5 == md5:
+                    errors.append(
+                        f"{path}: {label}.path_md5 equals md5; omit it when the build "
+                        "input is the upstream file itself"
+                    )
             source_index = source.get("index")
             if source_index not in {None, "tabix"}:
                 errors.append(f"{path}: {label}.index must be 'tabix'")

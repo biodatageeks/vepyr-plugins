@@ -46,7 +46,6 @@
 
 plugin_name       = "dbnsfp"
 coordinate_system = "1-based"
-csq_rank          = 4
 field_order       = "alphabetical"
 ingest_sql = """
 SELECT

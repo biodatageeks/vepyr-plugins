@@ -73,8 +73,11 @@ Given a URL or file, answer these first — they decide almost everything else:
      clinvar_<date>.vcf.gz`); match its `.md5` against your copy to find which
      date that is. If the build input is a local re-compression of the
      upstream file (AlphaMissense's BGZF+tabix rebuild of a plain gzip), `url`
-     and `md5` still name the upstream file — note the artifact's md5 in a
-     comment.
+     and `md5` still name the upstream file, and `path_md5` names the digest
+     of the artifact actually fed to the build — `build_plugin_cache` hashes
+     `source_path` and checks it against `path_md5` (else `md5`) before
+     ingesting anything, so without `path_md5` a derived input fails strict
+     verification.
    - `md5` comes from the **publisher first**: CADD ships `MD5SUMs`, ClinVar a
      `.md5` beside every VCF, GCS exposes `md5Hash` (base64 → hex) via
      `https://storage.googleapis.com/storage/v1/b/<bucket>/o/<object>`, dbNSFP
@@ -341,6 +344,13 @@ assert old.sort_by(keys).combine_chunks().equals(new.sort_by(keys).combine_chunk
 If there's no prior-good shard to diff against (first time adding this plugin),
 at minimum: reconcile row counts with an independent query of the raw source,
 and manually probe a handful of known variants against that source.
+
+When comparing `CSQ` output against Ensembl VEP, remember that the position of
+a plugin's block is set per run, not by the manifest: pass the same order to
+`annotate(plugins=[...])` that the VEP run gave its `--plugin` flags (the golden
+116 runs use `spliceai, cadd, alphamissense, dbnsfp, clinvar`). `plugins=None`
+falls back to alphabetical plugin-name order. Do not add a `csq_rank` key —
+the validator rejects it.
 
 ## 5. Upload
 
