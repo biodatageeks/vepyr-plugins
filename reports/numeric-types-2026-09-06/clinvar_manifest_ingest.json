@@ -1,0 +1,54 @@
+{
+  "description": "Native builder smoke check of the edited production ClinVar manifest with synthetic tabix VCF SNP/deletion/insertion and explicit-dot/absent INFO cases",
+  "result": [
+    [
+      "chr22",
+      3,
+      1,
+      2
+    ]
+  ],
+  "id_type": "int32",
+  "rows": [
+    {
+      "chrom": "22",
+      "start": 15528424,
+      "end": 15528424,
+      "allele_string": "T/C",
+      "id": 2,
+      "clnsig": "Uncertain_significance",
+      "clnrevstat": "criteria_provided",
+      "clndn": ".",
+      "clnvc": "single_nucleotide_variant",
+      "clnvi": null,
+      "tier": 0
+    },
+    {
+      "chrom": "22",
+      "start": 15528557,
+      "end": 15528557,
+      "allele_string": "T/-",
+      "id": 4857410,
+      "clnsig": "Benign",
+      "clnrevstat": "criteria_provided",
+      "clndn": "not_specified",
+      "clnvc": "Deletion",
+      "clnvi": ".",
+      "tier": 1
+    },
+    {
+      "chrom": "22",
+      "start": 15528559,
+      "end": 15528559,
+      "allele_string": "-/T",
+      "id": 3204693,
+      "clnsig": "Likely_benign",
+      "clnrevstat": "criteria_provided",
+      "clndn": null,
+      "clnvc": "Insertion",
+      "clnvi": null,
+      "tier": 1
+    }
+  ],
+  "passed": true
+}

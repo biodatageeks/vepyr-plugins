@@ -1,0 +1,122 @@
+[
+  {
+    "case": "raw",
+    "numeric_type": "FLOAT",
+    "source": [
+      "-0.000000",
+      "0.000000",
+      "-0.000001",
+      "0.163600",
+      "16.042138",
+      "-21.700286"
+    ],
+    "rendered": [
+      "-0.000000",
+      "0.000000",
+      "-0.000001",
+      "0.163600",
+      "16.042137",
+      "-21.700287"
+    ],
+    "mismatches": 2,
+    "sql": "SELECT chrom, start, \"end\", allele_string, CASE WHEN CAST(v AS DECIMAL(18,6)) = 0 AND starts_with(CAST(v AS VARCHAR), '-') THEN concat('-', CAST(CAST(v AS DECIMAL(18,6)) AS VARCHAR)) ELSE CAST(CAST(v AS DECIMAL(18,6)) AS VARCHAR) END AS score FROM (SELECT *, CAST(original AS FLOAT) AS v FROM plugin_numeric_sql_probe_src)"
+  },
+  {
+    "case": "raw",
+    "numeric_type": "DOUBLE",
+    "source": [
+      "-0.000000",
+      "0.000000",
+      "-0.000001",
+      "0.163600",
+      "16.042138",
+      "-21.700286"
+    ],
+    "rendered": [
+      "-0.000000",
+      "0.000000",
+      "-0.000001",
+      "0.163600",
+      "16.042138",
+      "-21.700286"
+    ],
+    "mismatches": 0,
+    "sql": "SELECT chrom, start, \"end\", allele_string, CASE WHEN CAST(v AS DECIMAL(18,6)) = 0 AND starts_with(CAST(v AS VARCHAR), '-') THEN concat('-', CAST(CAST(v AS DECIMAL(18,6)) AS VARCHAR)) ELSE CAST(CAST(v AS DECIMAL(18,6)) AS VARCHAR) END AS score FROM (SELECT *, CAST(original AS DOUBLE) AS v FROM plugin_numeric_sql_probe_src)"
+  },
+  {
+    "case": "ds",
+    "numeric_type": "FLOAT",
+    "source": [
+      "-0.00",
+      "0.00",
+      "0.10",
+      "0.29",
+      "1.00"
+    ],
+    "rendered": [
+      "-0.00",
+      "0.00",
+      "0.10",
+      "0.29",
+      "1.00"
+    ],
+    "mismatches": 0,
+    "sql": "SELECT chrom, start, \"end\", allele_string, CASE WHEN CAST(v AS DECIMAL(18,2)) = 0 AND starts_with(CAST(v AS VARCHAR), '-') THEN concat('-', CAST(CAST(v AS DECIMAL(18,2)) AS VARCHAR)) ELSE CAST(CAST(v AS DECIMAL(18,2)) AS VARCHAR) END AS score FROM (SELECT *, CAST(original AS FLOAT) AS v FROM plugin_numeric_sql_probe_src)"
+  },
+  {
+    "case": "ds",
+    "numeric_type": "DOUBLE",
+    "source": [
+      "-0.00",
+      "0.00",
+      "0.10",
+      "0.29",
+      "1.00"
+    ],
+    "rendered": [
+      "-0.00",
+      "0.00",
+      "0.10",
+      "0.29",
+      "1.00"
+    ],
+    "mismatches": 0,
+    "sql": "SELECT chrom, start, \"end\", allele_string, CASE WHEN CAST(v AS DECIMAL(18,2)) = 0 AND starts_with(CAST(v AS VARCHAR), '-') THEN concat('-', CAST(CAST(v AS DECIMAL(18,2)) AS VARCHAR)) ELSE CAST(CAST(v AS DECIMAL(18,2)) AS VARCHAR) END AS score FROM (SELECT *, CAST(original AS DOUBLE) AS v FROM plugin_numeric_sql_probe_src)"
+  },
+  {
+    "case": "meta",
+    "numeric_type": "FLOAT",
+    "source": [
+      "-0.0000",
+      "0.0000",
+      "0.0010",
+      "-0.1234"
+    ],
+    "rendered": [
+      "-0.0000",
+      "0.0000",
+      "0.0010",
+      "-0.1234"
+    ],
+    "mismatches": 0,
+    "sql": "SELECT chrom, start, \"end\", allele_string, CASE WHEN CAST(v AS DECIMAL(18,4)) = 0 AND starts_with(CAST(v AS VARCHAR), '-') THEN concat('-', CAST(CAST(v AS DECIMAL(18,4)) AS VARCHAR)) ELSE CAST(CAST(v AS DECIMAL(18,4)) AS VARCHAR) END AS score FROM (SELECT *, CAST(original AS FLOAT) AS v FROM plugin_numeric_sql_probe_src)"
+  },
+  {
+    "case": "meta",
+    "numeric_type": "DOUBLE",
+    "source": [
+      "-0.0000",
+      "0.0000",
+      "0.0010",
+      "-0.1234"
+    ],
+    "rendered": [
+      "-0.0000",
+      "0.0000",
+      "0.0010",
+      "-0.1234"
+    ],
+    "mismatches": 0,
+    "sql": "SELECT chrom, start, \"end\", allele_string, CASE WHEN CAST(v AS DECIMAL(18,4)) = 0 AND starts_with(CAST(v AS VARCHAR), '-') THEN concat('-', CAST(CAST(v AS DECIMAL(18,4)) AS VARCHAR)) ELSE CAST(CAST(v AS DECIMAL(18,4)) AS VARCHAR) END AS score FROM (SELECT *, CAST(original AS DOUBLE) AS v FROM plugin_numeric_sql_probe_src)"
+  }
+]

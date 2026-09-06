@@ -1,0 +1,34 @@
+{
+  "source": "/Users/mwiewior/workspace/data_vepyr/plugin_cache_116/plugin/clinvar/chr7.parquet",
+  "sample_rows": null,
+  "columns": {
+    "id": {
+      "non_null": 215874,
+      "invalid_numeric": 0,
+      "f32_display_mismatch": 0,
+      "f64_display_mismatch": 0,
+      "f32_fixed_mismatch": 0,
+      "f64_fixed_mismatch": 0,
+      "nulls": 0,
+      "distinct": 215874,
+      "fixed_scale": 0,
+      "examples": {
+        "invalid_numeric": [],
+        "f32_display_mismatch": [],
+        "f64_display_mismatch": [],
+        "f32_fixed_mismatch": [],
+        "f64_fixed_mismatch": []
+      },
+      "decimal_places": [
+        {
+          "scale": null,
+          "count": 215874
+        }
+      ],
+      "min": 2.0,
+      "max": 4857410.0,
+      "numeric_spelling_collisions": 0,
+      "collision_examples": []
+    }
+  }
+}

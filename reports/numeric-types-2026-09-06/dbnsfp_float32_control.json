@@ -1,0 +1,21 @@
+[
+  {
+    "chrom": "22",
+    "output": "/Users/mwiewior/workspace/data_vepyr/numeric_type_audit_20260906/dbnsfp_float32/vepyr_chr22.vcf.gz",
+    "reference": "/Users/mwiewior/research/git/vepyr/e2e-testing/results/116/fast_chr22/vep_chr22_merged_plugins.vcf",
+    "actual": {
+      "records": 50861,
+      "body_md5": "73d28b785866ef549c8740a62fe5e502"
+    },
+    "vep": {
+      "records": 50861,
+      "body_md5": "8c6ae1e17452776316ab3ee48def0ebf"
+    },
+    "previous_vepyr": {
+      "records": 50861,
+      "body_md5": "8c6ae1e17452776316ab3ee48def0ebf"
+    },
+    "matches_vep": false,
+    "matches_previous_vepyr": false
+  }
+]

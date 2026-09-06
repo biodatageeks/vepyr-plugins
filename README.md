@@ -37,6 +37,11 @@ prebuilt cache published on Hugging Face — see
 dbNSFP's licence forbids redistributing a converted cache, so that one is built
 from your own registered download; the manifest itself is public.
 
+ClinVar IDs are stored as `Int32` while retaining the same emitted CSQ text.
+The [numeric type audit](reports/numeric-types-2026-09-06/README.md) records the
+chromosome 22/1/7 body-MD5 checks and the formatting support needed to store
+additional plugin scores numerically.
+
 ## Using a manifest
 
 vepyr resolves `plugins/<plugin>/<plugin>.source.toml` from this repository at

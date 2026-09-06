@@ -1,0 +1,202 @@
+{
+  "source": "/Users/mwiewior/workspace/data_vepyr/plugin_cache_116/plugin/spliceai/chr7.parquet",
+  "sample_rows": null,
+  "columns": {
+    "ds_ag": {
+      "non_null": 201474868,
+      "invalid_numeric": 0,
+      "f32_display_mismatch": 195304948,
+      "f64_display_mismatch": 195304948,
+      "f32_fixed_mismatch": 0,
+      "f64_fixed_mismatch": 0,
+      "nulls": 0,
+      "distinct": 102,
+      "fixed_scale": 2,
+      "examples": {
+        "invalid_numeric": [],
+        "f32_display_mismatch": [
+          "-0.00 -> -0",
+          "0.00 -> 0",
+          "0.10 -> 0.1",
+          "0.20 -> 0.2",
+          "0.30 -> 0.3"
+        ],
+        "f64_display_mismatch": [
+          "-0.00 -> -0",
+          "0.00 -> 0",
+          "0.10 -> 0.1",
+          "0.20 -> 0.2",
+          "0.30 -> 0.3"
+        ],
+        "f32_fixed_mismatch": [],
+        "f64_fixed_mismatch": []
+      },
+      "decimal_places": [
+        {
+          "scale": 2,
+          "count": 201474868
+        }
+      ],
+      "min": -0.0,
+      "max": 1.0,
+      "numeric_spelling_collisions": 1,
+      "collision_examples": [
+        {
+          "number": -0.0,
+          "spellings": [
+            "-0.00",
+            "0.00"
+          ],
+          "count": 195188950
+        }
+      ]
+    },
+    "ds_al": {
+      "non_null": 201474868,
+      "invalid_numeric": 0,
+      "f32_display_mismatch": 201161190,
+      "f64_display_mismatch": 201161190,
+      "f32_fixed_mismatch": 0,
+      "f64_fixed_mismatch": 0,
+      "nulls": 0,
+      "distinct": 102,
+      "fixed_scale": 2,
+      "examples": {
+        "invalid_numeric": [],
+        "f32_display_mismatch": [
+          "-0.00 -> -0",
+          "0.00 -> 0",
+          "0.10 -> 0.1",
+          "0.20 -> 0.2",
+          "0.30 -> 0.3"
+        ],
+        "f64_display_mismatch": [
+          "-0.00 -> -0",
+          "0.00 -> 0",
+          "0.10 -> 0.1",
+          "0.20 -> 0.2",
+          "0.30 -> 0.3"
+        ],
+        "f32_fixed_mismatch": [],
+        "f64_fixed_mismatch": []
+      },
+      "decimal_places": [
+        {
+          "scale": 2,
+          "count": 201474868
+        }
+      ],
+      "min": -0.0,
+      "max": 1.0,
+      "numeric_spelling_collisions": 1,
+      "collision_examples": [
+        {
+          "number": -0.0,
+          "spellings": [
+            "-0.00",
+            "0.00"
+          ],
+          "count": 201143281
+        }
+      ]
+    },
+    "ds_dg": {
+      "non_null": 201474868,
+      "invalid_numeric": 0,
+      "f32_display_mismatch": 195621777,
+      "f64_display_mismatch": 195621777,
+      "f32_fixed_mismatch": 0,
+      "f64_fixed_mismatch": 0,
+      "nulls": 0,
+      "distinct": 102,
+      "fixed_scale": 2,
+      "examples": {
+        "invalid_numeric": [],
+        "f32_display_mismatch": [
+          "-0.00 -> -0",
+          "0.00 -> 0",
+          "0.10 -> 0.1",
+          "0.20 -> 0.2",
+          "0.30 -> 0.3"
+        ],
+        "f64_display_mismatch": [
+          "-0.00 -> -0",
+          "0.00 -> 0",
+          "0.10 -> 0.1",
+          "0.20 -> 0.2",
+          "0.30 -> 0.3"
+        ],
+        "f32_fixed_mismatch": [],
+        "f64_fixed_mismatch": []
+      },
+      "decimal_places": [
+        {
+          "scale": 2,
+          "count": 201474868
+        }
+      ],
+      "min": -0.0,
+      "max": 1.0,
+      "numeric_spelling_collisions": 1,
+      "collision_examples": [
+        {
+          "number": -0.0,
+          "spellings": [
+            "-0.00",
+            "0.00"
+          ],
+          "count": 195515476
+        }
+      ]
+    },
+    "ds_dl": {
+      "non_null": 201474868,
+      "invalid_numeric": 0,
+      "f32_display_mismatch": 201204729,
+      "f64_display_mismatch": 201204729,
+      "f32_fixed_mismatch": 0,
+      "f64_fixed_mismatch": 0,
+      "nulls": 0,
+      "distinct": 102,
+      "fixed_scale": 2,
+      "examples": {
+        "invalid_numeric": [],
+        "f32_display_mismatch": [
+          "-0.00 -> -0",
+          "0.00 -> 0",
+          "0.10 -> 0.1",
+          "0.20 -> 0.2",
+          "0.30 -> 0.3"
+        ],
+        "f64_display_mismatch": [
+          "-0.00 -> -0",
+          "0.00 -> 0",
+          "0.10 -> 0.1",
+          "0.20 -> 0.2",
+          "0.30 -> 0.3"
+        ],
+        "f32_fixed_mismatch": [],
+        "f64_fixed_mismatch": []
+      },
+      "decimal_places": [
+        {
+          "scale": 2,
+          "count": 201474868
+        }
+      ],
+      "min": -0.0,
+      "max": 1.0,
+      "numeric_spelling_collisions": 1,
+      "collision_examples": [
+        {
+          "number": -0.0,
+          "spellings": [
+            "-0.00",
+            "0.00"
+          ],
+          "count": 201189002
+        }
+      ]
+    }
+  }
+}

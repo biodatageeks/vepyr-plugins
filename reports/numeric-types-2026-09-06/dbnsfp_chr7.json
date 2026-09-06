@@ -1,0 +1,840 @@
+{
+  "source": "/Users/mwiewior/workspace/data_vepyr/plugin_cache_116/plugin/dbnsfp/chr7.parquet",
+  "sample_rows": null,
+  "columns": {
+    "sift4g_score": {
+      "non_null": 3746409,
+      "invalid_numeric": 3305963,
+      "f32_display_mismatch": 72809,
+      "f64_display_mismatch": 72809,
+      "f32_fixed_mismatch": 104428,
+      "f64_fixed_mismatch": 104428,
+      "nulls": 296062,
+      "distinct": 1158910,
+      "fixed_scale": 3,
+      "examples": {
+        "invalid_numeric": [
+          ".,.",
+          ".,.,.",
+          ".,.,.,.",
+          ".,.,.,.,.",
+          ".,.,.,.,.,."
+        ],
+        "f32_display_mismatch": [
+          "0.0 -> 0",
+          "1.0 -> 1"
+        ],
+        "f64_display_mismatch": [
+          "0.0 -> 0",
+          "1.0 -> 1"
+        ],
+        "f32_fixed_mismatch": [
+          "0.0 -> 0.000",
+          "0.01 -> 0.010",
+          "0.02 -> 0.020",
+          "0.03 -> 0.030",
+          "0.04 -> 0.040"
+        ],
+        "f64_fixed_mismatch": [
+          "0.0 -> 0.000",
+          "0.01 -> 0.010",
+          "0.02 -> 0.020",
+          "0.03 -> 0.030",
+          "0.04 -> 0.040"
+        ]
+      },
+      "decimal_places": [
+        {
+          "scale": null,
+          "count": 3305963
+        },
+        {
+          "scale": 1,
+          "count": 75022
+        },
+        {
+          "scale": 2,
+          "count": 29406
+        },
+        {
+          "scale": 3,
+          "count": 336018
+        }
+      ],
+      "min": 0.0,
+      "max": 1.0,
+      "numeric_spelling_collisions": 0,
+      "collision_examples": []
+    },
+    "polyphen2_hdiv_score": {
+      "non_null": 3678793,
+      "invalid_numeric": 3305963,
+      "f32_display_mismatch": 75506,
+      "f64_display_mismatch": 75506,
+      "f32_fixed_mismatch": 99087,
+      "f64_fixed_mismatch": 99087,
+      "nulls": 363678,
+      "distinct": 618087,
+      "fixed_scale": 3,
+      "examples": {
+        "invalid_numeric": [
+          ".,.",
+          ".,.,.",
+          ".,.,.,.",
+          ".,.,.,.,.",
+          ".,.,.,.,.,."
+        ],
+        "f32_display_mismatch": [
+          "0.0 -> 0",
+          "1.0 -> 1"
+        ],
+        "f64_display_mismatch": [
+          "0.0 -> 0",
+          "1.0 -> 1"
+        ],
+        "f32_fixed_mismatch": [
+          "0.0 -> 0.000",
+          "0.01 -> 0.010",
+          "0.02 -> 0.020",
+          "0.03 -> 0.030",
+          "0.04 -> 0.040"
+        ],
+        "f64_fixed_mismatch": [
+          "0.0 -> 0.000",
+          "0.01 -> 0.010",
+          "0.02 -> 0.020",
+          "0.03 -> 0.030",
+          "0.04 -> 0.040"
+        ]
+      },
+      "decimal_places": [
+        {
+          "scale": null,
+          "count": 3305963
+        },
+        {
+          "scale": 1,
+          "count": 77244
+        },
+        {
+          "scale": 2,
+          "count": 21843
+        },
+        {
+          "scale": 3,
+          "count": 273743
+        }
+      ],
+      "min": 0.0,
+      "max": 1.0,
+      "numeric_spelling_collisions": 0,
+      "collision_examples": []
+    },
+    "polyphen2_hvar_score": {
+      "non_null": 3678793,
+      "invalid_numeric": 3305963,
+      "f32_display_mismatch": 30026,
+      "f64_display_mismatch": 30026,
+      "f32_fixed_mismatch": 57466,
+      "f64_fixed_mismatch": 57466,
+      "nulls": 363678,
+      "distinct": 805124,
+      "fixed_scale": 3,
+      "examples": {
+        "invalid_numeric": [
+          ".,.",
+          ".,.,.",
+          ".,.,.,.",
+          ".,.,.,.,.",
+          ".,.,.,.,.,."
+        ],
+        "f32_display_mismatch": [
+          "0.0 -> 0",
+          "1.0 -> 1"
+        ],
+        "f64_display_mismatch": [
+          "0.0 -> 0",
+          "1.0 -> 1"
+        ],
+        "f32_fixed_mismatch": [
+          "0.0 -> 0.000",
+          "0.01 -> 0.010",
+          "0.02 -> 0.020",
+          "0.03 -> 0.030",
+          "0.04 -> 0.040"
+        ],
+        "f64_fixed_mismatch": [
+          "0.0 -> 0.000",
+          "0.01 -> 0.010",
+          "0.02 -> 0.020",
+          "0.03 -> 0.030",
+          "0.04 -> 0.040"
+        ]
+      },
+      "decimal_places": [
+        {
+          "scale": null,
+          "count": 3305963
+        },
+        {
+          "scale": 1,
+          "count": 31443
+        },
+        {
+          "scale": 2,
+          "count": 26023
+        },
+        {
+          "scale": 3,
+          "count": 315364
+        }
+      ],
+      "min": 0.0,
+      "max": 1.0,
+      "numeric_spelling_collisions": 0,
+      "collision_examples": []
+    },
+    "mutationtaster_score": {
+      "non_null": 3807753,
+      "invalid_numeric": 3305963,
+      "f32_display_mismatch": 64900,
+      "f64_display_mismatch": 64900,
+      "f32_fixed_mismatch": 501790,
+      "f64_fixed_mismatch": 501790,
+      "nulls": 234718,
+      "distinct": 754174,
+      "fixed_scale": 6,
+      "examples": {
+        "invalid_numeric": [
+          ".,.",
+          ".,.,.",
+          ".,.,.,.",
+          ".,.,.,.,.",
+          ".,.,.,.,.,."
+        ],
+        "f32_display_mismatch": [
+          "0.0 -> 0",
+          "0.010 -> 0.01",
+          "0.020 -> 0.02",
+          "0.030 -> 0.03",
+          "0.040 -> 0.04"
+        ],
+        "f64_display_mismatch": [
+          "0.0 -> 0",
+          "0.010 -> 0.01",
+          "0.020 -> 0.02",
+          "0.030 -> 0.03",
+          "0.040 -> 0.04"
+        ],
+        "f32_fixed_mismatch": [
+          "0.0 -> 0.000000",
+          "0.003 -> 0.003000",
+          "0.005 -> 0.005000",
+          "0.006 -> 0.006000",
+          "0.01 -> 0.010000"
+        ],
+        "f64_fixed_mismatch": [
+          "0.0 -> 0.000000",
+          "0.003 -> 0.003000",
+          "0.005 -> 0.005000",
+          "0.006 -> 0.006000",
+          "0.01 -> 0.010000"
+        ]
+      },
+      "decimal_places": [
+        {
+          "scale": null,
+          "count": 3305963
+        },
+        {
+          "scale": 1,
+          "count": 91100
+        },
+        {
+          "scale": 2,
+          "count": 395495
+        },
+        {
+          "scale": 3,
+          "count": 15195
+        }
+      ],
+      "min": 0.0,
+      "max": 1.0,
+      "numeric_spelling_collisions": 11,
+      "collision_examples": [
+        {
+          "number": 0.01,
+          "spellings": [
+            "0.01",
+            "0.010"
+          ],
+          "count": 37631
+        },
+        {
+          "number": 0.02,
+          "spellings": [
+            "0.02",
+            "0.020"
+          ],
+          "count": 29392
+        },
+        {
+          "number": 0.03,
+          "spellings": [
+            "0.03",
+            "0.030"
+          ],
+          "count": 25231
+        },
+        {
+          "number": 0.04,
+          "spellings": [
+            "0.04",
+            "0.040"
+          ],
+          "count": 21910
+        },
+        {
+          "number": 0.05,
+          "spellings": [
+            "0.05",
+            "0.050"
+          ],
+          "count": 19035
+        }
+      ]
+    },
+    "provean_score": {
+      "non_null": 3729677,
+      "invalid_numeric": 3305963,
+      "f32_display_mismatch": 10403,
+      "f64_display_mismatch": 10403,
+      "f32_fixed_mismatch": 423714,
+      "f64_fixed_mismatch": 423714,
+      "nulls": 312794,
+      "distinct": 1323692,
+      "fixed_scale": 3,
+      "examples": {
+        "invalid_numeric": [
+          "-0.01,-0.01",
+          "-0.01,-0.01,-0.01",
+          "-0.01,-0.01,-0.01,-0.01",
+          "-0.01,-0.01,-0.01,-0.01,-0.01",
+          "-0.01,-0.01,-0.01,-0.01,-0.01,.,-0.01,."
+        ],
+        "f32_display_mismatch": [
+          "-1.0 -> -1",
+          "-10.0 -> -10",
+          "-11.0 -> -11",
+          "-12.0 -> -12",
+          "-13.0 -> -13"
+        ],
+        "f64_display_mismatch": [
+          "-1.0 -> -1",
+          "-10.0 -> -10",
+          "-11.0 -> -11",
+          "-12.0 -> -12",
+          "-13.0 -> -13"
+        ],
+        "f32_fixed_mismatch": [
+          "-0.01 -> -0.010",
+          "-0.02 -> -0.020",
+          "-0.03 -> -0.030",
+          "-0.04 -> -0.040",
+          "-0.05 -> -0.050"
+        ],
+        "f64_fixed_mismatch": [
+          "-0.01 -> -0.010",
+          "-0.02 -> -0.020",
+          "-0.03 -> -0.030",
+          "-0.04 -> -0.040",
+          "-0.05 -> -0.050"
+        ]
+      },
+      "decimal_places": [
+        {
+          "scale": null,
+          "count": 3305963
+        },
+        {
+          "scale": 1,
+          "count": 48264
+        },
+        {
+          "scale": 2,
+          "count": 375450
+        }
+      ],
+      "min": -14.0,
+      "max": 11.77,
+      "numeric_spelling_collisions": 0,
+      "collision_examples": []
+    },
+    "vest4_score": {
+      "non_null": 3835255,
+      "invalid_numeric": 3305963,
+      "f32_display_mismatch": 0,
+      "f64_display_mismatch": 0,
+      "f32_fixed_mismatch": 52924,
+      "f64_fixed_mismatch": 52924,
+      "nulls": 207216,
+      "distinct": 1774377,
+      "fixed_scale": 3,
+      "examples": {
+        "invalid_numeric": [
+          ".,.",
+          ".,.,.",
+          ".,.,.,.",
+          ".,.,.,.,.",
+          ".,.,.,.,.,."
+        ],
+        "f32_display_mismatch": [],
+        "f64_display_mismatch": [],
+        "f32_fixed_mismatch": [
+          "0 -> 0.000",
+          "0.01 -> 0.010",
+          "0.02 -> 0.020",
+          "0.03 -> 0.030",
+          "0.04 -> 0.040"
+        ],
+        "f64_fixed_mismatch": [
+          "0 -> 0.000",
+          "0.01 -> 0.010",
+          "0.02 -> 0.020",
+          "0.03 -> 0.030",
+          "0.04 -> 0.040"
+        ]
+      },
+      "decimal_places": [
+        {
+          "scale": null,
+          "count": 3305999
+        },
+        {
+          "scale": 1,
+          "count": 4879
+        },
+        {
+          "scale": 2,
+          "count": 48009
+        },
+        {
+          "scale": 3,
+          "count": 476368
+        }
+      ],
+      "min": 0.0,
+      "max": 1.0,
+      "numeric_spelling_collisions": 0,
+      "collision_examples": []
+    },
+    "metasvm_score": {
+      "non_null": 3427409,
+      "invalid_numeric": 0,
+      "f32_display_mismatch": 342499,
+      "f64_display_mismatch": 342499,
+      "f32_fixed_mismatch": 0,
+      "f64_fixed_mismatch": 0,
+      "nulls": 615062,
+      "distinct": 24843,
+      "fixed_scale": 4,
+      "examples": {
+        "invalid_numeric": [],
+        "f32_display_mismatch": [
+          "-0.0000 -> -0",
+          "-0.0010 -> -0.001",
+          "-0.0020 -> -0.002",
+          "-0.0030 -> -0.003",
+          "-0.0040 -> -0.004"
+        ],
+        "f64_display_mismatch": [
+          "-0.0000 -> -0",
+          "-0.0010 -> -0.001",
+          "-0.0020 -> -0.002",
+          "-0.0030 -> -0.003",
+          "-0.0040 -> -0.004"
+        ],
+        "f32_fixed_mismatch": [],
+        "f64_fixed_mismatch": []
+      },
+      "decimal_places": [
+        {
+          "scale": 4,
+          "count": 3427409
+        }
+      ],
+      "min": -1.5246,
+      "max": 1.6332,
+      "numeric_spelling_collisions": 1,
+      "collision_examples": [
+        {
+          "number": -0.0,
+          "spellings": [
+            "-0.0000",
+            "0.0000"
+          ],
+          "count": 66
+        }
+      ]
+    },
+    "metalr_score": {
+      "non_null": 3427409,
+      "invalid_numeric": 0,
+      "f32_display_mismatch": 342204,
+      "f64_display_mismatch": 342204,
+      "f32_fixed_mismatch": 0,
+      "f64_fixed_mismatch": 0,
+      "nulls": 615062,
+      "distinct": 10000,
+      "fixed_scale": 4,
+      "examples": {
+        "invalid_numeric": [],
+        "f32_display_mismatch": [
+          "0.0000 -> 0",
+          "0.0010 -> 0.001",
+          "0.0020 -> 0.002",
+          "0.0030 -> 0.003",
+          "0.0040 -> 0.004"
+        ],
+        "f64_display_mismatch": [
+          "0.0000 -> 0",
+          "0.0010 -> 0.001",
+          "0.0020 -> 0.002",
+          "0.0030 -> 0.003",
+          "0.0040 -> 0.004"
+        ],
+        "f32_fixed_mismatch": [],
+        "f64_fixed_mismatch": []
+      },
+      "decimal_places": [
+        {
+          "scale": 4,
+          "count": 3427409
+        }
+      ],
+      "min": 0.0,
+      "max": 0.9999,
+      "numeric_spelling_collisions": 0,
+      "collision_examples": []
+    },
+    "revel_score": {
+      "non_null": 3750797,
+      "invalid_numeric": 3305963,
+      "f32_display_mismatch": 44476,
+      "f64_display_mismatch": 44476,
+      "f32_fixed_mismatch": 0,
+      "f64_fixed_mismatch": 0,
+      "nulls": 291674,
+      "distinct": 661868,
+      "fixed_scale": 3,
+      "examples": {
+        "invalid_numeric": [
+          ".,.",
+          ".,.,.",
+          ".,.,.,.",
+          ".,.,.,.,.",
+          ".,.,.,.,.,."
+        ],
+        "f32_display_mismatch": [
+          "0.000 -> 0",
+          "0.010 -> 0.01",
+          "0.020 -> 0.02",
+          "0.030 -> 0.03",
+          "0.040 -> 0.04"
+        ],
+        "f64_display_mismatch": [
+          "0.000 -> 0",
+          "0.010 -> 0.01",
+          "0.020 -> 0.02",
+          "0.030 -> 0.03",
+          "0.040 -> 0.04"
+        ],
+        "f32_fixed_mismatch": [],
+        "f64_fixed_mismatch": []
+      },
+      "decimal_places": [
+        {
+          "scale": null,
+          "count": 3305963
+        },
+        {
+          "scale": 3,
+          "count": 444834
+        }
+      ],
+      "min": 0.0,
+      "max": 0.995,
+      "numeric_spelling_collisions": 0,
+      "collision_examples": []
+    },
+    "gerp_rs": {
+      "non_null": 3971195,
+      "invalid_numeric": 0,
+      "f32_display_mismatch": 29361,
+      "f64_display_mismatch": 29361,
+      "f32_fixed_mismatch": 3611876,
+      "f64_fixed_mismatch": 3611876,
+      "nulls": 71276,
+      "distinct": 5977,
+      "fixed_scale": 3,
+      "examples": {
+        "invalid_numeric": [],
+        "f32_display_mismatch": [
+          "-1.0 -> -1",
+          "-1.01E-4 -> -0.000101",
+          "-1.08E-4 -> -0.000108",
+          "-1.13E-4 -> -0.000113",
+          "-1.22E-4 -> -0.000122"
+        ],
+        "f64_display_mismatch": [
+          "-1.0 -> -1",
+          "-1.01E-4 -> -0.000101",
+          "-1.08E-4 -> -0.000108",
+          "-1.13E-4 -> -0.000113",
+          "-1.22E-4 -> -0.000122"
+        ],
+        "f32_fixed_mismatch": [
+          "-0.00104 -> -0.001",
+          "-0.00105 -> -0.001",
+          "-0.00107 -> -0.001",
+          "-0.00108 -> -0.001",
+          "-0.00109 -> -0.001"
+        ],
+        "f64_fixed_mismatch": [
+          "-0.00104 -> -0.001",
+          "-0.00105 -> -0.001",
+          "-0.00107 -> -0.001",
+          "-0.00108 -> -0.001",
+          "-0.00109 -> -0.001"
+        ]
+      },
+      "decimal_places": [
+        {
+          "scale": null,
+          "count": 357
+        },
+        {
+          "scale": 1,
+          "count": 353217
+        },
+        {
+          "scale": 2,
+          "count": 3225084
+        },
+        {
+          "scale": 3,
+          "count": 359319
+        },
+        {
+          "scale": 4,
+          "count": 30522
+        },
+        {
+          "scale": 5,
+          "count": 2696
+        }
+      ],
+      "min": -12.3,
+      "max": 6.17,
+      "numeric_spelling_collisions": 0,
+      "collision_examples": []
+    },
+    "phylop100way_vertebrate": {
+      "non_null": 4042309,
+      "invalid_numeric": 0,
+      "f32_display_mismatch": 4042309,
+      "f64_display_mismatch": 4042309,
+      "f32_fixed_mismatch": 0,
+      "f64_fixed_mismatch": 0,
+      "nulls": 162,
+      "distinct": 17135,
+      "fixed_scale": 6,
+      "examples": {
+        "invalid_numeric": [],
+        "f32_display_mismatch": [
+          "-0.000000 -> -0",
+          "-0.001000 -> -0.001",
+          "-0.002000 -> -0.002",
+          "-0.003000 -> -0.003",
+          "-0.004000 -> -0.004"
+        ],
+        "f64_display_mismatch": [
+          "-0.000000 -> -0",
+          "-0.001000 -> -0.001",
+          "-0.002000 -> -0.002",
+          "-0.003000 -> -0.003",
+          "-0.004000 -> -0.004"
+        ],
+        "f32_fixed_mismatch": [],
+        "f64_fixed_mismatch": []
+      },
+      "decimal_places": [
+        {
+          "scale": 6,
+          "count": 4042309
+        }
+      ],
+      "min": -20.0,
+      "max": 10.003,
+      "numeric_spelling_collisions": 1,
+      "collision_examples": [
+        {
+          "number": -0.0,
+          "spellings": [
+            "-0.000000",
+            "0.000000"
+          ],
+          "count": 1248
+        }
+      ]
+    },
+    "phastcons100way_vertebrate": {
+      "non_null": 4042309,
+      "invalid_numeric": 0,
+      "f32_display_mismatch": 4042309,
+      "f64_display_mismatch": 4042309,
+      "f32_fixed_mismatch": 0,
+      "f64_fixed_mismatch": 0,
+      "nulls": 162,
+      "distinct": 1001,
+      "fixed_scale": 6,
+      "examples": {
+        "invalid_numeric": [],
+        "f32_display_mismatch": [
+          "0.000000 -> 0",
+          "0.001000 -> 0.001",
+          "0.002000 -> 0.002",
+          "0.003000 -> 0.003",
+          "0.004000 -> 0.004"
+        ],
+        "f64_display_mismatch": [
+          "0.000000 -> 0",
+          "0.001000 -> 0.001",
+          "0.002000 -> 0.002",
+          "0.003000 -> 0.003",
+          "0.004000 -> 0.004"
+        ],
+        "f32_fixed_mismatch": [],
+        "f64_fixed_mismatch": []
+      },
+      "decimal_places": [
+        {
+          "scale": 6,
+          "count": 4042309
+        }
+      ],
+      "min": 0.0,
+      "max": 1.0,
+      "numeric_spelling_collisions": 0,
+      "collision_examples": []
+    },
+    "cadd_raw": {
+      "non_null": 4042471,
+      "invalid_numeric": 0,
+      "f32_display_mismatch": 405069,
+      "f64_display_mismatch": 405067,
+      "f32_fixed_mismatch": 2,
+      "f64_fixed_mismatch": 0,
+      "nulls": 0,
+      "distinct": 3012552,
+      "fixed_scale": 6,
+      "examples": {
+        "invalid_numeric": [],
+        "f32_display_mismatch": [
+          "-0.000010 -> -0.00001",
+          "-0.000040 -> -0.00004",
+          "-0.000130 -> -0.00013",
+          "-0.000150 -> -0.00015",
+          "-0.000160 -> -0.00016"
+        ],
+        "f64_display_mismatch": [
+          "-0.000010 -> -0.00001",
+          "-0.000040 -> -0.00004",
+          "-0.000130 -> -0.00013",
+          "-0.000150 -> -0.00015",
+          "-0.000160 -> -0.00016"
+        ],
+        "f32_fixed_mismatch": [
+          "-21.669272 -> -21.669271",
+          "19.754495 -> 19.754496"
+        ],
+        "f64_fixed_mismatch": []
+      },
+      "decimal_places": [
+        {
+          "scale": 6,
+          "count": 4042471
+        }
+      ],
+      "min": -21.669272,
+      "max": 19.754495,
+      "numeric_spelling_collisions": 0,
+      "collision_examples": []
+    },
+    "cadd_phred": {
+      "non_null": 4042471,
+      "invalid_numeric": 0,
+      "f32_display_mismatch": 347009,
+      "f64_display_mismatch": 347009,
+      "f32_fixed_mismatch": 3414995,
+      "f64_fixed_mismatch": 3414995,
+      "nulls": 0,
+      "distinct": 11139,
+      "fixed_scale": 3,
+      "examples": {
+        "invalid_numeric": [],
+        "f32_display_mismatch": [
+          "0.010 -> 0.01",
+          "0.020 -> 0.02",
+          "0.030 -> 0.03",
+          "0.040 -> 0.04",
+          "0.050 -> 0.05"
+        ],
+        "f64_display_mismatch": [
+          "0.010 -> 0.01",
+          "0.020 -> 0.02",
+          "0.030 -> 0.03",
+          "0.040 -> 0.04",
+          "0.050 -> 0.05"
+        ],
+        "f32_fixed_mismatch": [
+          "10.00 -> 10.000",
+          "10.01 -> 10.010",
+          "10.02 -> 10.020",
+          "10.03 -> 10.030",
+          "10.04 -> 10.040"
+        ],
+        "f64_fixed_mismatch": [
+          "10.00 -> 10.000",
+          "10.01 -> 10.010",
+          "10.02 -> 10.020",
+          "10.03 -> 10.030",
+          "10.04 -> 10.040"
+        ]
+      },
+      "decimal_places": [
+        {
+          "scale": null,
+          "count": 421412
+        },
+        {
+          "scale": 1,
+          "count": 2094888
+        },
+        {
+          "scale": 2,
+          "count": 898695
+        },
+        {
+          "scale": 3,
+          "count": 627476
+        }
+      ],
+      "min": 0.001,
+      "max": 85.0,
+      "numeric_spelling_collisions": 0,
+      "collision_examples": []
+    }
+  }
+}
