@@ -78,6 +78,133 @@ uses this order — pass it explicitly when reproducing the parity gate:
 plugins=["spliceai", "cadd", "alphamissense", "dbnsfp", "clinvar"]
 ```
 
+## String scores and numeric casts
+
+Some score columns deliberately use `Utf8` (Polars `String`) in the cache.
+VEP emits the source's spelling: `1.420`, `0.00` and `-0.00` carry formatting
+that a generic float-to-string conversion changes. Preserving those strings
+lets vepyr match the **VCF body MD5**, including trailing zeros and negative
+zero. Other strings contain several scores, such as dbNSFP's `0.01;.;0.03`,
+and cannot be represented by one scalar float.
+
+For filtering, aggregation and plotting, create numeric columns in your
+DataFrame. A cast suitable for numerical analysis does **not** promise an
+identical VCF string when cast back: binary floats approximate decimal values,
+and formatting must be handled separately. Keep the original text columns if
+you need to reproduce the source output. CADD raw scores need `Float64` to
+retain their published six-decimal precision: a real value such as
+`16.042138` becomes `16.042137` when stored as Float32 and printed to six
+decimals. Decimal types can retain fixed scale, but cannot preserve the sign
+of zero on their own.
+
+The DataFrame examples below target the **unreleased API in
+[vepyr PR #79](https://github.com/biodatageeks/vepyr/pull/79)**. See its
+[plugin-column documentation](https://github.com/biodatageeks/vepyr/blob/68e72a75994e27f4b55d2824a66cd22126794707/docs/dataframes.md#plugin-columns)
+for the schema; these examples require a build including that support.
+CADD and ClinVar have one scalar value per variant. SpliceAI, AlphaMissense
+and dbNSFP have one list element per consequence, aligned with `Consequence`.
+The cache manifest determines each scalar or list element's initial type;
+`lf.collect_schema()` shows the types in your build and cache.
+
+The table uses **DataFrame/CSQ field names**, which are case-sensitive:
+`CADD_RAW` belongs to CADD, while `CADD_raw` belongs to dbNSFP. Cache Parquet
+files instead use each manifest's `column` names, such as `cadd_raw`.
+
+| Plugin / DataFrame fields | Cast for numerical analysis | Why / limits |
+|---|---|---|
+| CADD `CADD_RAW` | `pl.Float64` | Retains the source's six-decimal precision; avoid Float32. |
+| CADD `CADD_PHRED` | `pl.Float32` or `pl.Float64` | Float32 is sufficient for the source precision. VCF formatting uses three decimals below 10, two below 20, one below 30, then integers. |
+| SpliceAI `SpliceAI_pred_DS_AG`, `DS_AL`, `DS_DG`, `DS_DL` (same prefix) | `pl.List(pl.Float32)` or `pl.List(pl.Float64)` | Two-decimal scores; the VCF spelling, including `-0.00`, is separate from the numeric value. |
+| SpliceAI `SpliceAI_pred_DP_AG`, `DP_AL`, `DP_DG`, `DP_DL` (same prefix) | Already `pl.List(pl.Int32)` | Signed integer positions; no float cast is needed. |
+| AlphaMissense `am_pathogenicity` | Already `pl.List(pl.Float32)` | Numeric score; `am_class` remains text. |
+| dbNSFP `CADD_raw` | `pl.List(pl.Float64)` | Same precision requirement as CADD `CADD_RAW`. |
+| dbNSFP `MetaSVM_score`, `MetaLR_score`, `GERP++_RS`, `phyloP100way_vertebrate`, `phastCons100way_vertebrate`, `CADD_phred` | `pl.List(pl.Float32)` or `pl.List(pl.Float64)` | One scalar score per consequence element. Float32 retained the source precision in the audited data, but decimal/scientific output formatting varies by field. |
+| dbNSFP `SIFT4G_score`, `Polyphen2_HDIV_score`, `Polyphen2_HVAR_score`, `MutationTaster_score`, `PROVEAN_score`, `VEST4_score`, `REVEL_score` | Split each element into a numeric list; see below | An element may itself contain multiple scores and missing-value markers. Casting the whole string to one float loses that structure. |
+| ClinVar `ClinVar` | `pl.Int32` for numeric IDs | All 4,439,569 IDs in the pinned source round-trip exactly through Int32. The initial dtype depends on the cache version. This is the plugin ID, not the input VCF's `id` or the core `clinvar_ids` column. |
+| Class, prediction, gene-symbol and other ClinVar fields | Keep text | These are labels or identifiers, not scalar scores. |
+
+The precision recommendations were checked on the complete relevant cache
+columns for chromosomes 22, 1 and 7; ClinVar IDs were checked on all contigs.
+They apply to the source versions pinned in these manifests. `Float64` is
+also a useful default for downstream calculations on scalar scores; widening
+an existing Float32 value cannot recover digits already lost to rounding.
+
+### Scalar and per-consequence columns
+
+Select the required columns, then add numeric companions. This works with
+the `LazyFrame` returned by vepyr, or with a collected `DataFrame` using the
+same `with_columns()` expressions:
+
+```python
+import polars as pl
+import vepyr
+
+lf = vepyr.annotate(
+    "input.vcf.gz",
+    "/data/116_GRCh38_merged",
+    reference_fasta="GRCh38.fa",
+    plugin_cache_root="/data/plugin_cache",
+    plugins=["cadd", "spliceai", "dbnsfp", "clinvar"],
+).select(
+    "chrom", "start", "Consequence", "CADD_RAW", "CADD_PHRED",
+    "SpliceAI_pred_DS_AG", "MetaSVM_score", "CADD_raw", "SIFT4G_score", "ClinVar",
+)
+
+numeric = lf.with_columns(
+    pl.col("CADD_RAW").cast(pl.Float64).alias("CADD_RAW_num"),
+    pl.col("CADD_PHRED").cast(pl.Float32).alias("CADD_PHRED_num"),
+    pl.col("SpliceAI_pred_DS_AG")
+      .cast(pl.List(pl.Float32)).alias("SpliceAI_pred_DS_AG_num"),
+    pl.col("MetaSVM_score")
+      .cast(pl.List(pl.Float32)).alias("MetaSVM_score_num"),
+    pl.col("CADD_raw").cast(pl.List(pl.Float64)).alias("CADD_raw_num"),
+    pl.col("ClinVar").cast(pl.Int32).alias("ClinVar_id"),
+)
+df = numeric.collect()
+```
+
+The list casts preserve consequence order and null elements; they do not
+reduce multiple consequences to one score. Polars
+[`cast()`](https://docs.pola.rs/api/python/stable/reference/expressions/api/polars.Expr.cast.html)
+is strict by default, so unexpected non-numeric values raise an error.
+`strict=False` would turn those values into nulls, including a whole
+multi-score string such as `0.01&0.03`. Use it only when that loss is intended.
+For independently imported text with explicit missing markers, replace `""`
+and `"."` with null before casting; existing nulls already remain null.
+
+### Multiple scores inside a dbNSFP element
+
+There are two list levels: the outer list follows vepyr consequences; the
+inner list holds the source scores carried by that consequence. In named
+DataFrame columns from PR #79, CSQ escaping represents the inner separator as
+`&`, for example `"0.01&.&0.03"`. In a plugin cache Parquet column the same
+value is `"0.01,.,0.03"`; the raw dbNSFP source uses `;`.
+
+Use nested
+[`list.eval()`](https://docs.pola.rs/api/python/stable/reference/expressions/api/polars.Expr.list.eval.html)
+to preserve both levels and each missing score's position:
+
+```python
+with_sift4g = numeric.with_columns(
+    pl.col("SIFT4G_score")
+      .list.eval(
+          pl.element().str.split("&").list.eval(
+              pl.element().replace(["", "."], None).cast(pl.Float64)
+          )
+      )
+      .alias("SIFT4G_score_values")
+)
+# List(List(Float64)): ["0.01&.&0.03", None] -> [[0.01, None, 0.03], None]
+```
+
+If reading the cache Parquet directly, there is no outer consequence list:
+apply `pl.col("sift4g_score").str.split(",").list.eval(...)` with the same
+inner missing-value replacement and cast. Avoid automatically taking the
+first score or dropping nulls: source score lists are not a mapping to the
+outer consequence list. Choose an aggregation only when it suits your
+analysis. Changing these analytical columns does not change the cache or
+vepyr's separate `output_vcf` serialization path.
+
 ## Layout
 
 ```
