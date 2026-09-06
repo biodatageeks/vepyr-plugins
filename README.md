@@ -97,10 +97,6 @@ retain their published six-decimal precision: a real value such as
 decimals. Decimal types can retain fixed scale, but cannot preserve the sign
 of zero on their own.
 
-The DataFrame examples below target the **unreleased API in
-[vepyr PR #79](https://github.com/biodatageeks/vepyr/pull/79)**. See its
-[plugin-column documentation](https://github.com/biodatageeks/vepyr/blob/68e72a75994e27f4b55d2824a66cd22126794707/docs/dataframes.md#plugin-columns)
-for the schema; these examples require a build including that support.
 CADD and ClinVar have one scalar value per variant. SpliceAI, AlphaMissense
 and dbNSFP have one list element per consequence, aligned with `Consequence`.
 The cache manifest determines each scalar or list element's initial type;
@@ -176,7 +172,7 @@ and `"."` with null before casting; existing nulls already remain null.
 
 There are two list levels: the outer list follows vepyr consequences; the
 inner list holds the source scores carried by that consequence. In named
-DataFrame columns from PR #79, CSQ escaping represents the inner separator as
+DataFrame columns, CSQ escaping represents the inner separator as
 `&`, for example `"0.01&.&0.03"`. In a plugin cache Parquet column the same
 value is `"0.01,.,0.03"`; the raw dbNSFP source uses `;`.
 
