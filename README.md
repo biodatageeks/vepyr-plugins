@@ -38,9 +38,9 @@ dbNSFP's licence forbids redistributing a converted cache, so that one is built
 from your own registered download; the manifest itself is public.
 
 ClinVar IDs are stored as `Int32` while retaining the same emitted CSQ text.
-The [numeric type audit](reports/numeric-types-2026-09-06/README.md) records the
-chromosome 22/1/7 body-MD5 checks and the formatting support needed to store
-additional plugin scores numerically.
+The [numeric type audit script](scripts/audit_numeric_types.py) checks score
+precision, and [cache verification](scripts/verify_numeric_cache.py) compares
+the body MD5 after rebuilding selected chromosomes.
 
 ## Using a manifest
 

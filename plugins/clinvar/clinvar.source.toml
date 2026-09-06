@@ -149,8 +149,7 @@ record_layout = true
 # `ClinVar` (bare, no subfield name) is VEP's own --custom short_name marker
 # field, populated from the source VCF's ID column.
 # All 4,439,569 IDs in the pinned source round-trip exactly through Int32.
-# This changes cache storage while preserving the emitted ClinVar text; see
-# reports/numeric-types-2026-09-06 for the chr22/chr1/chr7 body-MD5 checks.
+# Native rebuilds preserve the VEP body MD5 on chromosomes 22, 1 and 7.
 [[value_columns]]
 column = "id"
 csq_field = "ClinVar"
