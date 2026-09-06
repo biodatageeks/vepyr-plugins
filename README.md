@@ -119,12 +119,6 @@ files instead use each manifest's `column` names, such as `cadd_raw`.
 | ClinVar `ClinVar` | `pl.Int32` for numeric IDs | All 4,439,569 IDs in the pinned source round-trip exactly through Int32. The initial dtype depends on the cache version. This is the plugin ID, not the input VCF's `id` or the core `clinvar_ids` column. |
 | Class, prediction, gene-symbol and other ClinVar fields | Keep text | These are labels or identifiers, not scalar scores. |
 
-The precision recommendations were checked on the complete relevant cache
-columns for chromosomes 22, 1 and 7; ClinVar IDs were checked on all contigs.
-They apply to the source versions pinned in these manifests. `Float64` is
-also a useful default for downstream calculations on scalar scores; widening
-an existing Float32 value cannot recover digits already lost to rounding.
-
 ### Scalar and per-consequence columns
 
 Select the required columns, then add numeric companions. This works with
