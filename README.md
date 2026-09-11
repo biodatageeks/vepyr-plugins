@@ -30,8 +30,9 @@ only a `plugins/<name>/<name>.source.toml` file in this repository.
 | **AlphaMissense** | [`plugins/alphamissense`](plugins/alphamissense/alphamissense.source.toml) | tabix TSV | `{ref_aa}{Protein_position}{alt_aa}` | 2 | ✅ |
 | **ClinVar** | [`plugins/clinvar`](plugins/clinvar/clinvar.source.toml) | VCF (`--custom`-style) | per variant | 6 | ✅ |
 | **dbNSFP** | [`plugins/dbnsfp`](plugins/dbnsfp/dbnsfp.source.toml) | tabix TSV (505 columns) | `{ref_aa}/{alt_aa}` | 19 | ❌ licence |
+| **PhenotypeOrthologous** | [`plugins/phenotypeorthologous`](plugins/phenotypeorthologous/phenotypeorthologous.source.toml) | GFF3 (tabix), `lookup = "interval"` | `{Gene}` + gene-span overlap | 4 | ✅ |
 
-All five are validated against golden Ensembl VEP 116 output. Four have a
+All six are validated against golden Ensembl VEP 116 output. Five have a
 prebuilt cache published on Hugging Face — see
 [Plugin caches](https://biodatageeks.org/vepyr/downloads/#plugin-caches).
 dbNSFP's licence forbids redistributing a converted cache, so that one is built
@@ -210,7 +211,8 @@ scripts/release_notes.sh            manifest-change summary for release notes
 
 1. Read the manifest closest in shape to your source (native TSV → `cadd`,
    INFO-packed VCF → `spliceai`/`clinvar`, per-transcript amino-acid match →
-   `alphamissense`/`dbnsfp`) and copy its shape.
+   `alphamissense`/`dbnsfp`, gene-span GFF → `phenotypeorthologous`) and copy
+   its shape.
 2. Write `plugins/<name>/<name>.source.toml` against the
    [manifest reference](https://biodatageeks.org/vepyr/plugins/#manifest-structure).
    Note the TOML ordering rule: top-level scalars (`plugin_name`,
@@ -226,10 +228,10 @@ scripts/release_notes.sh            manifest-change summary for release notes
    than adding a second digest to the manifest, and build with
    `verify_source` disabled since the derived file cannot match `md5`.
 4. Validate: `python scripts/validate_manifests.py` — checks plugin/filename
-   agreement, providers, coordinate system, tabix/compression pairing, source
-   `url`/`md5` presence and shape, value and match column uniqueness, CSQ
-   field names, `allele_match` and `field_order`, and rejects the retired
-   `csq_rank` key. CI runs it on every pull request.
+   agreement, providers, coordinate system, tabix/compression pairing,
+   `[source.gff].attributes`, `lookup`, source `url`/`md5` presence and shape,
+   value and match column uniqueness, CSQ field names, `allele_match` and
+   `field_order`, and rejects the retired `csq_rank` key. CI runs it on every pull request.
 5. Build one chromosome with `build_plugin_cache` and compare the resulting CSQ
    fields against an Ensembl VEP 116 run before opening a PR.
 

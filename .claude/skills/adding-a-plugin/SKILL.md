@@ -196,6 +196,30 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
   and splits it back out in `ingest_sql` with `split_part`, the same trick
   used for a packed VCF INFO tag (see the VCF section above).
 - **Parquet**: `provider = "parquet"` already works, straightforward.
+- **GFF3** (features with `key=value;` attributes): `provider = "gff"` via
+  `datafusion-bio-format-gff`. Declare the attribute keys you need in
+  `[source.gff].attributes`; each becomes a flat nullable Utf8 column with the
+  attribute's exact name (quote it in SQL when it has upper-case letters:
+  `"Rat_gene_id"`). The eight fixed columns are `chrom, start, end, type,
+  source, score, strand, phase`. Values are percent-decoded (`%3B` → `;`) and
+  never trimmed. BGZF + `.tbi` sources take `index = "tabix"` and are sliced
+  per chromosome; plain or gzip GFF is read whole. See
+  `phenotypeorthologous.source.toml`.
+
+## 1b. Lookup kinds: `point` (default) vs `interval`
+
+`point` is the exact probe on `(start, allele_string, <match…>)` with tiering
+inherited from the variation cache — every per-variant scoring plugin.
+
+`interval` is for a source whose rows are genomic spans with no allele (gene
+or region tracks). The shard drops `allele_string`, skips the tier join, keeps
+file order per `(start)`, and at runtime a row matches when its `[start, end]`
+overlaps the variant's VEP-normalised span **and** every `[[match_column]]`
+discriminator agrees (an interval tree per discriminator, so dense tracks are
+fine); the first row in file order wins. Decide by reading the Ensembl
+plugin's `run()`: if it calls `get_data($vf->{chr}, $vf_start, $vf_end)` and
+filters by an id, that is `interval` + a template such as `{Gene}`.
+`allele_match` is rejected for `interval`.
 
 ## 2. Keep transformation and ordering in DataFusion
 
