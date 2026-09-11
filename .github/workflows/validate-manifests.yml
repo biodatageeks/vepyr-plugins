@@ -18,3 +18,5 @@ jobs:
           python-version: "3.12"
       - name: Validate plugin source manifests
         run: python scripts/validate_manifests.py
+      - name: Validator unit tests
+        run: pip install pytest && pytest -q tests

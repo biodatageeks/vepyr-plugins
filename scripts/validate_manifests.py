@@ -13,7 +13,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_GLOB = "plugins/*/*.source.toml"
 COORDINATE_SYSTEMS = {"1-based", "0-based-half-open"}
-PROVIDERS = {"vcf", "csv", "tsv", "parquet", "bed"}
+PROVIDERS = {"vcf", "csv", "tsv", "parquet", "bed", "gff"}
+LOOKUPS = {"point", "interval"}
+TABIX_PROVIDERS = {"csv", "tsv", "vcf", "gff"}
 VALUE_TYPES = {"Utf8", "Float32", "Int32"}
 ALLELE_MATCHES = {"exact", "minimised"}
 FIELD_ORDERS = {"declared", "alphabetical"}
@@ -103,6 +105,14 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
         )
     if not isinstance(manifest.get("assume_unique", False), bool):
         errors.append(f"{path}: assume_unique must be a boolean")
+    lookup = manifest.get("lookup", "point")
+    if lookup not in LOOKUPS:
+        errors.append(f"{path}: lookup must be one of {sorted(LOOKUPS)}")
+    elif lookup == "interval" and manifest.get("allele_match", "exact") != "exact":
+        errors.append(
+            f"{path}: allele_match has no meaning with lookup='interval' "
+            "(interval rows carry no allele); remove it"
+        )
 
     sources = manifest.get("source")
     if not isinstance(sources, list) or not sources:
@@ -129,9 +139,9 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
             source_index = source.get("index")
             if source_index not in {None, "tabix"}:
                 errors.append(f"{path}: {label}.index must be 'tabix'")
-            if source_index == "tabix" and provider not in {"csv", "tsv", "vcf"}:
+            if source_index == "tabix" and provider not in TABIX_PROVIDERS:
                 errors.append(
-                    f"{path}: {label}.index='tabix' is supported only for csv/tsv/vcf"
+                    f"{path}: {label}.index='tabix' is supported only for csv/tsv/vcf/gff"
                 )
             part = source.get("part", "")
             if not isinstance(part, str):
@@ -156,6 +166,22 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
                     f"{path}: {label}.index='tabix' requires "
                     "source.csv.compression='gzip' (BGZF) for csv/tsv"
                 )
+            gff = source.get("gff")
+            if provider == "gff":
+                if not isinstance(gff, dict):
+                    errors.append(f"{path}: {label}.gff table is required for provider gff")
+                else:
+                    attributes = gff.get("attributes")
+                    if (
+                        not isinstance(attributes, list)
+                        or not attributes
+                        or not all(isinstance(a, str) and a for a in attributes)
+                    ):
+                        errors.append(
+                            f"{path}: {label}.gff.attributes must be a non-empty list of strings"
+                        )
+            elif gff is not None:
+                errors.append(f"{path}: {label}.gff is only valid for provider gff")
         for part in sorted(duplicate_values(table_parts)):
             errors.append(f"{path}: duplicate source part {part!r} creates a table collision")
 
