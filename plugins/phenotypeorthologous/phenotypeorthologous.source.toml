@@ -1,0 +1,71 @@
+# PhenotypeOrthologous — phenotypes of rat and mouse orthologues, keyed by the
+# Ensembl gene overlapping the variant (Ensembl VEP `PhenotypeOrthologous.pm`,
+# VEP_plugins release/116 a7e03a5c6497e29e0598eed7b4795f953d9a1b5f,
+# sha256 89be8f30dd464f81913bef367831e8a08258e4085207f8291c956487f47de8ac).
+#
+# VEP queries the GFF with the VARIANT's span and keeps the first record whose
+# `gene_id` equals the transcript's gene stable id, so a flanking variant only
+# matches while it still lies inside the gene span. `lookup = "interval"`
+# reproduces exactly that: span overlap + `{Gene}` discriminator, first row in
+# file order. The plugin's optional `model=rat|mouse` filter is not modelled;
+# all four fields are always emitted (empty where the file has no value).
+plugin_name       = "phenotypeorthologous"
+coordinate_system = "1-based"
+lookup            = "interval"
+field_order       = "alphabetical"   # loaded with --plugin: VEP sorts header keys
+ingest_sql = """
+SELECT chrom,
+       start,
+       "end",
+       gene_id,
+       "Mouse_gene_id"               AS mouse_gene_id,
+       "Mouse_Orthologous_phenotype" AS mouse_phenotype,
+       "Rat_gene_id"                 AS rat_gene_id,
+       "Rat_Orthologous_phenotype"   AS rat_phenotype
+FROM plugin_phenotypeorthologous_src
+"""
+
+[[source]]
+provider = "gff"
+path     = "PhenotypesOrthologous_homo_sapiens_112_GRCh38.gff3.gz"
+url      = "https://ftp.ensembl.org/pub/release-116/variation/PhenotypeOrthologous/PhenotypesOrthologous_homo_sapiens_112_GRCh38.gff3.gz"
+# Computed locally on 2026-09-11 (3,424,946 bytes): the CHECKSUMS file in that
+# directory is BSD `sum` output, not MD5. Sibling .tbi md5: 1eb833a26c247418910685289c6528cc.
+md5      = "20e5401a198d7d3db66a982c037d3ad4"
+index    = "tabix"
+  [source.gff]
+  attributes = [
+    "gene_id",
+    "Mouse_gene_id",
+    "Mouse_Orthologous_phenotype",
+    "Rat_gene_id",
+    "Rat_Orthologous_phenotype",
+  ]
+
+[[match_column]]
+column   = "gene_id"
+template = "{Gene}"
+
+[[value_columns]]
+column      = "mouse_gene_id"
+csq_field   = "PhenotypeOrthologous_Mouse_geneid"
+type        = "Utf8"
+description = "PhenotypeOrthologous MouseGene associated with Mouse"
+
+[[value_columns]]
+column      = "mouse_phenotype"
+csq_field   = "PhenotypeOrthologous_Mouse_phenotype"
+type        = "Utf8"
+description = "PhenotypeOrthologous MousePhenotypes associated with orthologous genes in Mouse"
+
+[[value_columns]]
+column      = "rat_gene_id"
+csq_field   = "PhenotypeOrthologous_Rat_geneid"
+type        = "Utf8"
+description = "PhenotypeOrthologous RatGene associated with Rat"
+
+[[value_columns]]
+column      = "rat_phenotype"
+csq_field   = "PhenotypeOrthologous_Rat_phenotype"
+type        = "Utf8"
+description = "PhenotypeOrthologous RatPhenotypes associated with orthologous genes in Rat"

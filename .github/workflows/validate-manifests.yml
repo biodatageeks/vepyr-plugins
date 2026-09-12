@@ -16,5 +16,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
       - name: Validate plugin source manifests
         run: python scripts/validate_manifests.py
+      - name: Validator unit tests
+        run: pip install -r requirements-dev.txt && pytest -q tests
