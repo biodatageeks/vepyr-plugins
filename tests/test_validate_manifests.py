@@ -57,8 +57,23 @@ def test_gff_table_rejected_for_other_providers(tmp_path):
     assert any("source[0].gff is only valid for provider gff" in e for e in _errors(tmp_path, body))
 
 
-def test_tabix_allowed_for_gff(tmp_path):
-    assert not any("index='tabix'" in e for e in _errors(tmp_path, GFF))
+def test_tabix_rejected_for_parquet(tmp_path):
+    body = GFF.replace('provider = "gff"', 'provider = "parquet"').replace(
+        '  [source.gff]\n  attributes = ["gene_id", "Rat_gene_id"]\n', ""
+    )
+    assert any("is supported only for" in e for e in _errors(tmp_path, body))
+
+
+def test_gff_attributes_unique_and_not_fixed_columns(tmp_path):
+    body = GFF.replace('attributes = ["gene_id", "Rat_gene_id"]', 'attributes = ["gene_id", "start", "gene_id"]')
+    errors = _errors(tmp_path, body)
+    assert any("more than once" in e and "gene_id" in e for e in errors)
+    assert any("shadows a fixed GFF column" in e and "start" in e for e in errors)
+
+
+def test_lookup_must_be_a_string(tmp_path):
+    body = GFF.replace('lookup = "interval"', 'lookup = ["interval"]')
+    assert any("lookup must be one of" in e for e in _errors(tmp_path, body))
 
 
 def test_lookup_values(tmp_path):
@@ -67,8 +82,9 @@ def test_lookup_values(tmp_path):
 
 
 def test_interval_rejects_allele_match(tmp_path):
-    body = GFF.replace('lookup = "interval"', 'lookup = "interval"\nallele_match = "minimised"')
-    assert any("allele_match" in e and "interval" in e for e in _errors(tmp_path, body))
+    for value in ("minimised", "exact"):
+        body = GFF.replace('lookup = "interval"', f'lookup = "interval"\nallele_match = "{value}"')
+        assert any("allele_match" in e and "interval" in e for e in _errors(tmp_path, body)), value
 
 
 def test_point_default_still_accepts_existing_manifests():

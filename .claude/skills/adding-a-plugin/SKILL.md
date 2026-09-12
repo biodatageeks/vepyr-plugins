@@ -201,10 +201,15 @@ chromosome (usually chr21 or chrY) as a timing test before committing to the res
   `[source.gff].attributes`; each becomes a flat nullable Utf8 column with the
   attribute's exact name (quote it in SQL when it has upper-case letters:
   `"Rat_gene_id"`). The eight fixed columns are `chrom, start, end, type,
-  source, score, strand, phase`. Values are percent-decoded (`%3B` → `;`) and
-  never trimmed. BGZF + `.tbi` sources take `index = "tabix"` and are sliced
-  per chromosome; plain or gzip GFF is read whole. See
-  `phenotypeorthologous.source.toml`.
+  source, score, strand, phase`. Values are never trimmed, but the reader
+  **percent-decodes** them (`%3B` `%3D` `%26` `%2C` `%09`) and strips
+  surrounding double quotes, whereas a VEP tabix plugin splits the raw line on
+  `;`/`=` and decodes nothing. That is a known divergence: check every
+  attribute you project for `%` and `"` (PhenotypeOrthologous is safe because
+  the escapes live only in the unprojected `description`) and re-encode in
+  `ingest_sql` if VEP would emit the literal escape. BGZF + `.tbi` sources take
+  `index = "tabix"` and are sliced per chromosome; plain or gzip GFF is read
+  whole. See `phenotypeorthologous.source.toml`.
 
 ## 1b. Lookup kinds: `point` (default) vs `interval`
 

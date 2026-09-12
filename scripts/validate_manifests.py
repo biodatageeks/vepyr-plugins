@@ -16,6 +16,9 @@ COORDINATE_SYSTEMS = {"1-based", "0-based-half-open"}
 PROVIDERS = {"vcf", "csv", "tsv", "parquet", "bed", "gff"}
 LOOKUPS = {"point", "interval"}
 TABIX_PROVIDERS = {"csv", "tsv", "vcf", "gff"}
+# The GFF reader's fixed columns; an attribute of the same name would be a second
+# Arrow field of that name (mirrors the engine's SourceManifest::validate).
+GFF_FIXED_COLUMNS = {"chrom", "start", "end", "type", "source", "score", "strand", "phase"}
 VALUE_TYPES = {"Utf8", "Float32", "Int32"}
 ALLELE_MATCHES = {"exact", "minimised"}
 FIELD_ORDERS = {"declared", "alphabetical"}
@@ -106,9 +109,9 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
     if not isinstance(manifest.get("assume_unique", False), bool):
         errors.append(f"{path}: assume_unique must be a boolean")
     lookup = manifest.get("lookup", "point")
-    if lookup not in LOOKUPS:
+    if not isinstance(lookup, str) or lookup not in LOOKUPS:
         errors.append(f"{path}: lookup must be one of {sorted(LOOKUPS)}")
-    elif lookup == "interval" and manifest.get("allele_match", "exact") != "exact":
+    elif lookup == "interval" and "allele_match" in manifest:
         errors.append(
             f"{path}: allele_match has no meaning with lookup='interval' "
             "(interval rows carry no allele); remove it"
@@ -141,7 +144,8 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
                 errors.append(f"{path}: {label}.index must be 'tabix'")
             if source_index == "tabix" and provider not in TABIX_PROVIDERS:
                 errors.append(
-                    f"{path}: {label}.index='tabix' is supported only for csv/tsv/vcf/gff"
+                    f"{path}: {label}.index='tabix' is supported only for "
+                    f"{sorted(TABIX_PROVIDERS)}"
                 )
             part = source.get("part", "")
             if not isinstance(part, str):
@@ -180,6 +184,16 @@ def validate_manifest(path: Path, errors: list[str]) -> None:
                         errors.append(
                             f"{path}: {label}.gff.attributes must be a non-empty list of strings"
                         )
+                    else:
+                        for name in sorted(duplicate_values(attributes)):
+                            errors.append(
+                                f"{path}: {label}.gff.attributes lists {name!r} more than once"
+                            )
+                        for name in sorted(set(attributes) & GFF_FIXED_COLUMNS):
+                            errors.append(
+                                f"{path}: {label}.gff.attributes {name!r} shadows a fixed GFF "
+                                f"column {sorted(GFF_FIXED_COLUMNS)}"
+                            )
             elif gff is not None:
                 errors.append(f"{path}: {label}.gff is only valid for provider gff")
         for part in sorted(duplicate_values(table_parts)):

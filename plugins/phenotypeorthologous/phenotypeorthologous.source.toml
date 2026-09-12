@@ -13,7 +13,6 @@ plugin_name       = "phenotypeorthologous"
 coordinate_system = "1-based"
 lookup            = "interval"
 field_order       = "alphabetical"   # loaded with --plugin: VEP sorts header keys
-assume_unique     = true             # one row per gene_id in the file (16,409 rows, 0 duplicates)
 ingest_sql = """
 SELECT chrom,
        start,
