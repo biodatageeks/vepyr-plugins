@@ -30,13 +30,14 @@ only a `plugins/<name>/<name>.source.toml` file in this repository.
 | **AlphaMissense** | [`plugins/alphamissense`](plugins/alphamissense/alphamissense.source.toml) | tabix TSV | `{ref_aa}{Protein_position}{alt_aa}` | 2 | ✅ |
 | **ClinVar** | [`plugins/clinvar`](plugins/clinvar/clinvar.source.toml) | VCF (`--custom`-style) | per variant | 6 | ✅ |
 | **dbNSFP** | [`plugins/dbnsfp`](plugins/dbnsfp/dbnsfp.source.toml) | tabix TSV (505 columns) | `{ref_aa}/{alt_aa}` | 19 | ❌ licence |
-| **PhenotypeOrthologous** | [`plugins/phenotypeorthologous`](plugins/phenotypeorthologous/phenotypeorthologous.source.toml) | GFF3 (tabix), `lookup = "interval"` | `{Gene}` + gene-span overlap | 4 | ⏳ pending `v0.2.0` |
+| **PhenotypeOrthologous** | [`plugins/phenotypeorthologous`](plugins/phenotypeorthologous/phenotypeorthologous.source.toml) | GFF3 (tabix), `lookup = "interval"` | `{Gene}` + gene-span overlap | 4 | ✅ [`vepyr_116_GRCh38_plugin_phenotypeorthologous`](https://huggingface.co/datasets/biodatageeks/vepyr_116_GRCh38_plugin_phenotypeorthologous) @ `v0.2.0` |
 
 All six are validated against golden Ensembl VEP 116 output (the five score
 plugins in one golden run; PhenotypeOrthologous in its own single-plugin
 `merged_phenotypeorthologous` profile, chr22 at 100% field parity and strict
-md5 concordance). Four have a prebuilt cache published on Hugging Face and the
-PhenotypeOrthologous cache follows the `v0.2.0` tag — see
+md5 concordance). Five have a prebuilt cache published on Hugging Face, each dataset tagged
+`v0.2.0` to match this repository's release (the four score caches are unchanged
+since `v0.1.1`; the PhenotypeOrthologous cache covers chr1–22, X and MT) — see
 [Plugin caches](https://biodatageeks.org/vepyr/downloads/#plugin-caches).
 dbNSFP's licence forbids redistributing a converted cache, so that one is built
 from your own registered download; the manifest itself is public.
