@@ -72,12 +72,21 @@ allele_match      = "minimised"
 # even though the underlying data is correct — confirmed empirically: 502
 # ClinVar hits on chr21, 448/448 SNVs matched, 0/54 indels matched, before this
 # fix.
+#
+# ALT "." (no alternate allele; 1,102 records of the 2026-07-06 release) reaches
+# the SQL as an empty string. Since DataFusion 54, string_to_array('', '|')
+# returns an empty array (apache/datafusion#21104) and unnest() of an empty
+# array emits no row, so these records were dropped by vepyr 0.11.0 (DataFusion
+# 55.2), while vepyr <= 0.10.0 (DataFusion 53) kept them. The CASE below keeps
+# one row with an empty alternate allele under either behaviour, and also if a
+# reader delivers ALT "." as NULL.
 ingest_sql = """
 WITH exploded AS (
     SELECT chrom,
            CAST(start AS INT) AS pos,
            ref,
-           unnest(string_to_array(alt, '|')) AS alt,
+           unnest(CASE WHEN alt IS NULL OR alt = '' THEN make_array('')
+                       ELSE string_to_array(alt, '|') END) AS alt,
            id,
            CASE
                WHEN "CLNSIG" IS NOT NULL THEN array_to_string("CLNSIG", ',')
